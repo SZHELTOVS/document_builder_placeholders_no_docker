@@ -28,6 +28,7 @@ pipeline {
                     bat '''
                         python -m venv venv
                         venv\\Scripts\\pip install django docxtpl python-docx
+                        venv\\Scripts\\pip install django docxtpl python-docx djangorestframework
                     '''
                 }
             }
