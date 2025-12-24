@@ -7,12 +7,12 @@ pipeline {
                 script {
                     echo "=== ОТЛАДКА ДЛЯ WINDOWS ==="
                     
-                    // 1. Проверим переменные Jenkins
+                    
                     echo "BRANCH_NAME = ${env.BRANCH_NAME ?: 'НЕТ'}"
                     echo "GIT_BRANCH = ${env.GIT_BRANCH ?: 'НЕТ'}"
                     echo "CHANGE_ID = ${env.CHANGE_ID ?: 'НЕТ'}"
                     
-                    // 2. Проверим git КОМАНДОЙ BAT (для Windows)
+                    
                     bat '''
                         @echo off
                         echo.
@@ -79,10 +79,9 @@ pipeline {
         stage('CD: Deploy to Production') {
             when {
                 expression {
-                    // Проверяем ЧТО мы в main (origin/main), даже если detached HEAD
+                   
                     def isMain = env.GIT_BRANCH == 'origin/main' || 
-                                // ИЛИ проверяем по имени удаленной ветки
-                                // ИЛИ если это коммит из main
+                                
                                 sh(script: 'git log --oneline -1', returnStdout: true).contains('origin/main')
                     
                     echo "Проверка ветки:"
@@ -93,7 +92,7 @@ pipeline {
                 }
             }
             steps {
-                echo '✅ CD: Деплой на продакшен (main branch)'
+                echo 'CD: Деплой на продакшен (main branch)'
                 bat '''
                     echo "=== ДЕПЛОЙ В MAIN ВЫПОЛНЕН ===" > deploy_report.txt
                     echo "Проект: Document Builder" >> deploy_report.txt
