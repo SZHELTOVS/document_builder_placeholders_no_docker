@@ -2,6 +2,38 @@ pipeline {
     agent any
     
     stages {
+        stage('DEBUG: Покажи мне ветку!') {
+            steps {
+                script {
+                    // 1. Проверим ВСЕ переменные окружения
+                    echo "=== ВСЕ ПЕРЕМЕННЫЕ JENKINS ==="
+                    sh 'set'  // Для Linux
+                    bat 'set' // Для Windows - покажет ВСЕ переменные
+                    
+                    // 2. Проверим git разными способами
+                    echo "=== GIT КОМАНДЫ ==="
+                    bat '''
+                        echo Команда 1: git branch --show-current
+                        git branch --show-current
+                        echo.
+                        echo Команда 2: git rev-parse --abbrev-ref HEAD
+                        git rev-parse --abbrev-ref HEAD
+                        echo.
+                        echo Команда 3: git symbolic-ref --short HEAD
+                        git symbolic-ref --short HEAD
+                        echo.
+                        echo Команда 4: git name-rev --name-only HEAD
+                        git name-rev --name-only HEAD
+                        echo.
+                        echo Команда 5: git branch -a
+                        git branch -a
+                        echo.
+                        echo Команда 6: git log --oneline -1
+                        git log --oneline -1
+                    '''
+                }
+            }
+        }
         stage('Install Dependencies') {
             steps {
                 echo 'Устанавливаю зависимости Python...'
