@@ -47,7 +47,7 @@ pipeline {
                 expression {
                     // Запускаем команду git и проверяем вывод
                     def branch = bat(script: 'git branch --show-current', returnStdout: true).trim()
-                    return branch == 'origin/main'
+                    return branch == 'main'
                 }
             }
             steps {
