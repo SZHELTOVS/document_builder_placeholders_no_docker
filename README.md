@@ -15,8 +15,5 @@ frontend:
 cd .\backend\frontend\
 
 npm run dev
-<<<<<<< HEAD
- dev
-=======
-main
->>>>>>> main
+
+аывпаврпар
