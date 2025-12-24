@@ -16,4 +16,4 @@ cd .\backend\frontend\
 
 npm run dev
 
-аывпаврпар
+цуцкупыеркноев ewarehstrjytkduy
