@@ -2,36 +2,40 @@ pipeline {
     agent any
     
     stages {
-        stage('DEBUG') {
+        stage('DEBUG: Покажи мне ветку!') {
             steps {
                 script {
-                    echo "=== ВСЕ ПЕРЕМЕННЫЕ JENKINS ==="
-                    sh 'set' 
-                    bat 'set' 
+                    echo "=== ОТЛАДКА ДЛЯ WINDOWS ==="
                     
-                    echo "=== GIT КОМАНДЫ ==="
+                    // 1. Проверим переменные Jenkins
+                    echo "BRANCH_NAME = ${env.BRANCH_NAME ?: 'НЕТ'}"
+                    echo "GIT_BRANCH = ${env.GIT_BRANCH ?: 'НЕТ'}"
+                    echo "CHANGE_ID = ${env.CHANGE_ID ?: 'НЕТ'}"
+                    
+                    // 2. Проверим git КОМАНДОЙ BAT (для Windows)
                     bat '''
+                        @echo off
+                        echo.
+                        echo === GIT КОМАНДЫ ===
                         echo Команда 1: git branch --show-current
                         git branch --show-current
                         echo.
                         echo Команда 2: git rev-parse --abbrev-ref HEAD
                         git rev-parse --abbrev-ref HEAD
                         echo.
-                        echo Команда 3: git symbolic-ref --short HEAD
-                        git symbolic-ref --short HEAD
-                        echo.
-                        echo Команда 4: git name-rev --name-only HEAD
-                        git name-rev --name-only HEAD
-                        echo.
-                        echo Команда 5: git branch -a
+                        echo Команда 3: git branch -a
                         git branch -a
                         echo.
-                        echo Команда 6: git log --oneline -1
+                        echo Команда 4: git log --oneline -1
                         git log --oneline -1
+                        echo.
+                        echo Команда 5: git status --short --branch
+                        git status --short --branch
                     '''
                 }
             }
         }
+        
         stage('Install Dependencies') {
             steps {
                 echo 'Устанавливаю зависимости Python...'
