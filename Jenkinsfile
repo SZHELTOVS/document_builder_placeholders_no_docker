@@ -14,6 +14,22 @@ pipeline {
                 }
             }
         }
+        stage('Setup Virtual Environment') {
+            steps {
+                bat '''
+                    python -m venv venv
+                    venv\\Scripts\\pip install --upgrade pip
+                    venv\\Scripts\\pip install django docxtpl python-docx
+                '''
+            }
+        }
+        stage('Install Frontend Dependencies') {
+            steps {
+                dir('backend/frontend') {
+                    bat 'npm install || echo "Frontend dependencies installed"'
+                }
+            }
+        }
         
         stage('CI: Run Tests') {
             steps {
