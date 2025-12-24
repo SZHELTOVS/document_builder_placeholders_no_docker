@@ -44,10 +44,12 @@ pipeline {
         
         stage('CD: Deploy to Production') {
             when {
-                expression {
-                    // Запускаем команду git и проверяем вывод
-                    def branch = bat(script: 'git branch --show-current', returnStdout: true).trim()
-                    return branch == 'main'
+                 expression {
+                    // Проверяем несколькими способами
+                    def currentBranch = bat(script: 'git branch --show-current', returnStdout: true).trim()
+                    def abbrevBranch = bat(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                    
+                    return currentBranch == 'main' || abbrevBranch == 'main'
                 }
             }
             steps {
