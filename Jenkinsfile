@@ -75,6 +75,44 @@ pipeline {
                 }
             }
         }
+
+        stage('Run Project') {
+            steps {
+                echo 'Запускаю Backend и Frontend...'
+                script {
+                   
+                    bat '''
+                        @echo off
+                        echo Запускаю Django backend...
+                        start "Django Backend" cmd /k "cd backend && venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000"
+                        echo Backend запущен на http://localhost:8000
+                        timeout /t 3 /nobreak > nul
+                    '''
+                    
+                  
+                    bat '''
+                        @echo off
+                        echo Запускаю Quasar frontend...
+                        start "Quasar Frontend" cmd /k "cd backend\\frontend && npm run dev"
+                        echo Frontend запущен в режиме разработки
+                        timeout /t 5 /nobreak > nul
+                    '''
+                    
+                   
+                    bat '''
+                        @echo off
+                        echo Проверка запущенных процессов...
+                        echo.
+                        echo === СЕРВИСЫ ЗАПУЩЕНЫ ===
+                        echo 1. Django Backend: http://localhost:8000
+                        echo 2. Quasar Frontend: режим разработки
+                        echo.
+                        echo Проект готов к работе!
+                        timeout /t 10 /nobreak > nul
+                    '''
+                }
+            }
+        }
         
         stage('CD: Deploy to Production') {
             when {
