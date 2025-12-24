@@ -78,20 +78,30 @@ pipeline {
         
         stage('CD: Deploy to Production') {
             when {
-                 expression {
-                    // Проверяем несколькими способами
-                    def currentBranch = bat(script: 'git branch --show-current', returnStdout: true).trim()
-                    def abbrevBranch = bat(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
+                expression {
+                    // Проверяем ЧТО мы в main (origin/main), даже если detached HEAD
+                    def isMain = env.GIT_BRANCH == 'origin/main' || 
+                                // ИЛИ проверяем по имени удаленной ветки
+                                // ИЛИ если это коммит из main
+                                sh(script: 'git log --oneline -1', returnStdout: true).contains('origin/main')
                     
-                    return currentBranch == 'main' || abbrevBranch == 'main'
+                    echo "Проверка ветки:"
+                    echo "  GIT_BRANCH = '${env.GIT_BRANCH}'"
+                    echo "  isMain = ${isMain}"
+                    
+                    return isMain
                 }
             }
             steps {
-                echo 'CD: Деплой на продакшен'
+                echo '✅ CD: Деплой на продакшен (main branch)'
                 bat '''
-                    echo "Деплой выполнен успешно!" > deploy_report.txt
-                    echo "Ветка: main" >> deploy_report.txt
+                    echo "=== ДЕПЛОЙ В MAIN ВЫПОЛНЕН ===" > deploy_report.txt
+                    echo "Проект: Document Builder" >> deploy_report.txt
+                    echo "Ветка: origin/main (detached HEAD)" >> deploy_report.txt
+                    echo "Коммит: 2522a04" >> deploy_report.txt
                     echo "Время: %date% %time%" >> deploy_report.txt
+                    echo "Статус: УСПЕШНО" >> deploy_report.txt
+                    type deploy_report.txt
                 '''
                 archiveArtifacts artifacts: 'deploy_report.txt', fingerprint: true
             }
