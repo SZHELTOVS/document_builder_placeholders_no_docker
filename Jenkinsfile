@@ -82,7 +82,7 @@ pipeline {
                    
                     def isMain = env.GIT_BRANCH == 'origin/main' || 
                                 
-                                sh(script: 'git log --oneline -1', returnStdout: true).contains('origin/main')
+                                bat(script: 'git log --oneline -1', returnStdout: true).contains('origin/main')
                     
                     echo "Проверка ветки:"
                     echo "  GIT_BRANCH = '${env.GIT_BRANCH}'"
