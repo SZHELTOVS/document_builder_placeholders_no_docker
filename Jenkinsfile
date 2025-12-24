@@ -2,15 +2,13 @@ pipeline {
     agent any
     
     stages {
-        stage('DEBUG: Покажи мне ветку!') {
+        stage('DEBUG') {
             steps {
                 script {
-                    // 1. Проверим ВСЕ переменные окружения
                     echo "=== ВСЕ ПЕРЕМЕННЫЕ JENKINS ==="
-                    sh 'set'  // Для Linux
-                    bat 'set' // Для Windows - покажет ВСЕ переменные
+                    sh 'set' 
+                    bat 'set' 
                     
-                    // 2. Проверим git разными способами
                     echo "=== GIT КОМАНДЫ ==="
                     bat '''
                         echo Команда 1: git branch --show-current
