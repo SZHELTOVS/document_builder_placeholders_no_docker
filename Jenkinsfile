@@ -2,6 +2,40 @@ pipeline {
     agent any
     
     stages {
+        stage('DEBUG: Покажи мне ветку!') {
+            steps {
+                script {
+                    echo "=== ОТЛАДКА ДЛЯ WINDOWS ==="
+                    
+                    
+                    echo "BRANCH_NAME = ${env.BRANCH_NAME ?: 'НЕТ'}"
+                    echo "GIT_BRANCH = ${env.GIT_BRANCH ?: 'НЕТ'}"
+                    echo "CHANGE_ID = ${env.CHANGE_ID ?: 'НЕТ'}"
+                    
+                    
+                    bat '''
+                        @echo off
+                        echo.
+                        echo === GIT КОМАНДЫ ===
+                        echo Команда 1: git branch --show-current
+                        git branch --show-current
+                        echo.
+                        echo Команда 2: git rev-parse --abbrev-ref HEAD
+                        git rev-parse --abbrev-ref HEAD
+                        echo.
+                        echo Команда 3: git branch -a
+                        git branch -a
+                        echo.
+                        echo Команда 4: git log --oneline -1
+                        git log --oneline -1
+                        echo.
+                        echo Команда 5: git status --short --branch
+                        git status --short --branch
+                    '''
+                }
+            }
+        }
+        
         stage('Install Dependencies') {
             steps {
                 echo 'Устанавливаю зависимости Python...'
@@ -45,17 +79,28 @@ pipeline {
         stage('CD: Deploy to Production') {
             when {
                 expression {
-                    // Запускаем команду git и проверяем вывод
-                    def branch = bat(script: 'git branch --show-current', returnStdout: true).trim()
-                    return branch == 'origin/main'
+                   
+                    def isMain = env.GIT_BRANCH == 'origin/main' || 
+                                
+                                sh(script: 'git log --oneline -1', returnStdout: true).contains('origin/main')
+                    
+                    echo "Проверка ветки:"
+                    echo "  GIT_BRANCH = '${env.GIT_BRANCH}'"
+                    echo "  isMain = ${isMain}"
+                    
+                    return isMain
                 }
             }
             steps {
-                echo 'CD: Деплой на продакшен'
+                echo 'CD: Деплой на продакшен (main branch)'
                 bat '''
-                    echo "Деплой выполнен успешно!" > deploy_report.txt
-                    echo "Ветка: main" >> deploy_report.txt
+                    echo "=== ДЕПЛОЙ В MAIN ВЫПОЛНЕН ===" > deploy_report.txt
+                    echo "Проект: Document Builder" >> deploy_report.txt
+                    echo "Ветка: origin/main (detached HEAD)" >> deploy_report.txt
+                    echo "Коммит: 2522a04" >> deploy_report.txt
                     echo "Время: %date% %time%" >> deploy_report.txt
+                    echo "Статус: УСПЕШНО" >> deploy_report.txt
+                    type deploy_report.txt
                 '''
                 archiveArtifacts artifacts: 'deploy_report.txt', fingerprint: true
             }
