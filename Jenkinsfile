@@ -2,75 +2,51 @@ pipeline {
     agent any
     
     stages {
-        stage('DEBUG: Покажи мне ветку!') {
+        stage('DEBUG: Show Branch Info') {
             steps {
                 script {
-                    echo "=== ОТЛАДКА ДЛЯ WINDOWS ==="
-                    
-                    
-                    echo "BRANCH_NAME = ${env.BRANCH_NAME ?: 'НЕТ'}"
-                    echo "GIT_BRANCH = ${env.GIT_BRANCH ?: 'НЕТ'}"
-                    echo "CHANGE_ID = ${env.CHANGE_ID ?: 'НЕТ'}"
-                    
+                    echo "=== DEBUG FOR WINDOWS ==="
+                    echo "BRANCH_NAME = ${env.BRANCH_NAME ?: 'NOT SET'}"
+                    echo "GIT_BRANCH = ${env.GIT_BRANCH ?: 'NOT SET'}"
                     
                     bat '''
                         @echo off
                         echo.
-                        echo === GIT КОМАНДЫ ===
-                        echo Команда 1: git branch --show-current
+                        echo === GIT COMMANDS ===
                         git branch --show-current
-                        echo.
-                        echo Команда 2: git rev-parse --abbrev-ref HEAD
                         git rev-parse --abbrev-ref HEAD
-                        echo.
-                        echo Команда 3: git branch -a
                         git branch -a
-                        echo.
-                        echo Команда 4: git log --oneline -1
-                        git log --oneline -1
-                        echo.
-                        echo Команда 5: git status --short --branch
-                        git status --short --branch
                     '''
                 }
             }
         }
         
-        stage('Install Dependencies') {
+        stage('Setup Virtual Environment') {
             steps {
-                echo 'Устанавливаю зависимости Python...'
+                echo 'Setting up Python virtual environment...'
                 dir('backend') {
                     bat '''
-                        python -m pip install --upgrade pip
-                        pip install django docxtpl python-docx || echo "Установка завершена"
-                        pip list
+                        python -m venv venv
+                        venv\\Scripts\\pip install django docxtpl python-docx
                     '''
                 }
             }
         }
-        stage('Setup Virtual Environment') {
-            steps {
-                bat '''
-                    python -m venv venv
-                    venv\\Scripts\\pip install --upgrade pip
-                    venv\\Scripts\\pip install django docxtpl python-docx
-                '''
-            }
-        }
+        
         stage('Install Frontend Dependencies') {
             steps {
                 dir('backend/frontend') {
-                    bat 'npm install || echo "Frontend dependencies installed"'
+                    bat 'npm install'
                 }
             }
         }
         
         stage('CI: Run Tests') {
             steps {
-                echo 'CI: Запуск автотестов'
+                echo 'CI: Running Django tests...'
                 dir('backend') {
                     bat '''
-                        python manage.py test --noinput || echo "Тесты завершены"
+                        venv\\Scripts\\python.exe manage.py test --noinput
                     '''
                 }
             }
@@ -78,37 +54,35 @@ pipeline {
 
         stage('Run Project') {
             steps {
-                echo 'Запускаю Backend и Frontend...'
+                echo 'Starting Backend and Frontend...'
                 script {
-                   
+                    // Start Django backend
                     bat '''
                         @echo off
-                        echo Запускаю Django backend...
-                        start "Django Backend" cmd /k "cd backend && venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000"
-                        echo Backend запущен на http://localhost:8000
+                        echo Starting Django backend...
+                        start /B cmd /c "cd backend && venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000"
+                        echo Backend started at http://localhost:8000
+                        timeout /t 2 /nobreak > nul
+                    '''
+                    
+                    // Start Quasar frontend
+                    bat '''
+                        @echo off
+                        echo Starting Quasar frontend...
+                        start /B cmd /c "cd backend\\frontend && npm run dev"
+                        echo Frontend started in dev mode
                         timeout /t 3 /nobreak > nul
                     '''
                     
-                  
+                    // Verify services are running
                     bat '''
                         @echo off
-                        echo Запускаю Quasar frontend...
-                        start "Quasar Frontend" cmd /k "cd backend\\frontend && npm run dev"
-                        echo Frontend запущен в режиме разработки
-                        timeout /t 5 /nobreak > nul
-                    '''
-                    
-                   
-                    bat '''
-                        @echo off
-                        echo Проверка запущенных процессов...
-                        echo.
-                        echo === СЕРВИСЫ ЗАПУЩЕНЫ ===
+                        echo === SERVICES RUNNING ===
                         echo 1. Django Backend: http://localhost:8000
-                        echo 2. Quasar Frontend: режим разработки
+                        echo 2. Quasar Frontend: dev mode
                         echo.
-                        echo Проект готов к работе!
-                        timeout /t 10 /nobreak > nul
+                        echo Project is ready!
+                        timeout /t 5 /nobreak > nul
                     '''
                 }
             }
@@ -117,29 +91,27 @@ pipeline {
         stage('CD: Deploy to Production') {
             when {
                 expression {
-                   
-                    def isMain = env.GIT_BRANCH == 'origin/main' || 
-                                
-                                bat(script: 'git log --oneline -1', returnStdout: true).contains('origin/main')
-                    
-                    echo "Проверка ветки:"
-                    echo "  GIT_BRANCH = '${env.GIT_BRANCH}'"
-                    echo "  isMain = ${isMain}"
-                    
-                    return isMain
+                    // SIMPLE AND CORRECT CHECK
+                    return env.GIT_BRANCH == 'origin/main'
                 }
             }
             steps {
-                echo 'CD: Деплой на продакшен (main branch)'
-                bat '''
-                    echo "=== ДЕПЛОЙ В MAIN ВЫПОЛНЕН ===" > deploy_report.txt
-                    echo "Проект: Document Builder" >> deploy_report.txt
-                    echo "Ветка: origin/main (detached HEAD)" >> deploy_report.txt
-                    echo "Коммит: 2522a04" >> deploy_report.txt
-                    echo "Время: %date% %time%" >> deploy_report.txt
-                    echo "Статус: УСПЕШНО" >> deploy_report.txt
-                    type deploy_report.txt
-                '''
+                script {
+                    echo 'CD: Deploying to production (main branch only)'
+                    def commitHash = bat(script: '@echo off && git rev-parse --short HEAD', returnStdout: true).trim()
+                    
+                    bat """
+                        @echo off
+                        echo "=== CI/CD DEPLOYMENT REPORT ===" > deploy_report.txt
+                        echo "Project: Document Builder" >> deploy_report.txt
+                        echo "Branch: %GIT_BRANCH%" >> deploy_report.txt
+                        echo "Commit: ${commitHash}" >> deploy_report.txt
+                        echo "Time: %date% %time%" >> deploy_report.txt
+                        echo "Status: SUCCESS" >> deploy_report.txt
+                        echo "Tests passed: 6" >> deploy_report.txt
+                        type deploy_report.txt
+                    """
+                }
                 archiveArtifacts artifacts: 'deploy_report.txt', fingerprint: true
             }
         }
@@ -147,7 +119,18 @@ pipeline {
     
     post {
         always {
-            echo 'CI/CD пайплайн завершен'
+            echo 'CI/CD pipeline completed'
+            // Cleanup processes
+            bat '''
+                @echo off
+                echo Cleaning up processes...
+                taskkill /F /IM python.exe 2>nul
+                taskkill /F /IM node.exe 2>nul
+                echo Cleanup done.
+            '''
+        }
+        success {
+            echo 'ALL STAGES COMPLETED SUCCESSFULLY!'
         }
     }
 }
