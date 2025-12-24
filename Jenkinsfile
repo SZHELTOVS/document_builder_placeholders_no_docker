@@ -27,8 +27,7 @@ pipeline {
                 dir('backend') {
                     bat '''
                         python -m venv venv
-                        venv\\Scripts\\pip install django docxtpl python-docx
-                        venv\\Scripts\\pip install django docxtpl python-docx djangorestframework
+                        venv\\Scripts\\pip install django docxtpl python-docx djangorestframework django-cors-headers
                     '''
                 }
             }
