@@ -53,76 +53,33 @@ pipeline {
                     // 1. Start Django as Windows service
                     bat '''
                         @echo off
-                        echo Creating server startup script...
                         cd backend
-                        
-                        echo Creating batch file for Django...
-                        echo @echo off > start_django.bat
-                        echo cd /d "%%~dp0" >> start_django.bat
-                        echo venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000 >> start_django.bat
-                        
-                        echo Starting Django in separate window...
-                        start "DjangoServer" cmd /k start_django.bat
-                        echo Django started in separate process!
-                        echo Check: http://localhost:8000
-                        
-                        timeout /t 5 /nobreak > nul
-                    '''
-                    
-                    // 2. Start Frontend as separate service
-                    bat '''
-                        @echo off
-                        echo Creating batch file for Frontend...
-                        cd backend\\frontend
-                        
-                        echo @echo off > start_frontend.bat
-                        echo cd /d "%%~dp0" >> start_frontend.bat
-                        echo npm run dev >> start_frontend.bat
-                        
-                        echo Starting Frontend in separate window...
-                        start "FrontendServer" cmd /k start_frontend.bat
-                        echo Frontend started in separate process!
-                        
-                        timeout /t 5 /nobreak > nul
-                    '''
-                    
-                    // 3. Check processes and show their IDs
-                    bat '''
-                        @echo off
-                        echo.
+
+                        echo [1/4] Запускаю Django сервер...
+                        START /B cmd /c "venv\Scripts\activate && python manage.py runserver 0.0.0.0:8000"
+                        echo Django запущен на http://localhost:8000
+                        timeout /t 3 /nobreak > nul
+
+                        echo [2/4] Перехожу в папку frontend...
+                        cd frontend
+
+                        echo [3/4] Запускаю Frontend (Quasar)...
+                        START /B cmd /c "npm run dev"
+                        echo Frontend запущен (обычно на http://localhost:9000 или 8080)
+                        timeout /t 3 /nobreak > nul
+
+                        echo [4/4] Проверяю запущенные процессы...
+                        tasklist | findstr "python node"
+
                         echo ================================================
-                        echo SERVER IS RUNNING!
+                        echo СЕРВЕРЫ ЗАПУЩЕНЫ УСПЕШНО!
                         echo ================================================
-                        echo.
-                        echo Active processes:
-                        echo.
-                        echo Python processes (Django):
-                        wmic process where "name='python.exe'" get ProcessId,CommandLine
-                        echo.
-                        echo Node processes (Frontend):
-                        wmic process where "name='node.exe'" get ProcessId,CommandLine
-                        echo.
-                        echo Processes will NOT be killed when Jenkins finishes!
-                        echo.
-                        echo Access:
-                        echo Backend: http://localhost:8000
-                        echo Frontend: http://localhost:9000 (or other port)
-                        echo.
-                        timeout /t 10 /nobreak > nul
-                    '''
-                    
-                    // 4. Save information about running processes
-                    bat '''
-                        @echo off
-                        echo === SERVER RUNNING === > server_running.txt
-                        echo Start time: %%date%% %%time%% >> server_running.txt
-                        echo Processes: >> server_running.txt
-                        echo python.exe - Django backend >> server_running.txt  
-                        echo node.exe - Quasar frontend >> server_running.txt
-                        echo. >> server_running.txt
-                        echo Server will continue running after Jenkins finishes >> server_running.txt
-                        echo To stop: taskkill /F /IM python.exe /IM node.exe >> server_running.txt
-                        type server_running.txt
+                        echo Django:  http://localhost:8000
+                        echo Frontend: проверьте порт в выводе npm выше
+                        echo 
+                        echo Процессы продолжают работать после завершения Jenkins
+                        echo Чтобы остановить: taskkill /F /IM python.exe /IM node.exe
+                        echo ================================================
                     '''
                     
                     archiveArtifacts artifacts: 'server_running.txt'
