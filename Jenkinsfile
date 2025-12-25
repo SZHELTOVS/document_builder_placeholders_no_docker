@@ -50,42 +50,41 @@ pipeline {
         stage('RUN PROJECT - Permanent') {
             steps {
                 script {
-                    echo 'Starting servers DIRECTLY (Django:8000 Quasar:9000)...'
+                    echo 'Starting servers in BACKGROUND (Django:8000 Quasar:9000)...'
                     
+                    // 1. Запускаем Django в фоне, логи пишем в файл
+                    bat '''
+                        @echo off
+                        cd backend
+                        start "Django Server 8000" /B venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000 > django.log 2>&1
+                    '''
+                    
+                    // 2. Запускаем Quasar в фоне, логи пишем в файл
+                    bat '''
+                        @echo off
+                        cd backend\\frontend
+                        start "Quasar Dev 9000" /B cmd /c "npm run dev > quasar.log 2>&1"
+                    '''
+                    
+                    // 3. Даем серверам время на запуск
+                    sleep(time: 15, unit: 'SECONDS')
+                    
+                    // 4. Создаем и выводим информацию для пользователя
                     bat '''
                         @echo off
                         echo ================================================
-                        echo STARTING SERVERS - NO PYTHON SCRIPT
+                        echo SERVERS STARTED IN BACKGROUND
                         echo ================================================
-                        
-                        REM Backend Django (port 8000)
-                        cd backend
-                        start /min "Django Server 8000" venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
-                        
-                        REM Frontend Quasar (port 9000)
-                        cd frontend
-                        start /min "Quasar Dev 9000" cmd /k "npm run dev"
-                        
-                        REM Wait for startup
-                        timeout /t 8 /nobreak >nul
-                        
-                        cd ..\\..
-                        
-                        echo "Backend: http://localhost:8000/admin/" > servers.txt
-                        echo "Frontend: http://localhost:9000/" >> servers.txt
-                        echo "Time: %date% %time%" >> servers.txt
-                        echo "Servers started in MINIMIZED windows!" >> servers.txt
-                        type servers.txt
+                        echo Backend (Django): http://localhost:8000/
+                        echo Backend Admin:    http://localhost:8000/admin/
+                        echo Frontend (Quasar): http://localhost:9000/
+                        echo.
+                        echo Logs are in:
+                        echo   - backend\\django.log
+                        echo   - backend\\frontend\\quasar.log
+                        echo ================================================
+                        echo Check Windows Task Manager for python.exe and node.exe processes.
                     '''
-                    
-                    archiveArtifacts artifacts: 'servers.txt', allowEmptyArchive: true
-                    sleep(time: 10, unit: 'SECONDS')
-                    
-                    echo '================================================'
-                    echo 'SUCCESS! Check TASKBAR for 2 minimized windows:'
-                    echo '1. "Django Server 8000" → http://localhost:8000/admin/'
-                    echo '2. "Quasar Dev 9000" → http://localhost:9000/'
-                    echo '================================================'
                 }
             }
         }
