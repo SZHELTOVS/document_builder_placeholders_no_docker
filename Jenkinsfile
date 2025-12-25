@@ -32,10 +32,16 @@ pipeline {
             steps {
                 bat '''
                     @echo off
-                    echo === CLEANING DOCKER ===
-                    docker-compose down --remove-orphans 2>nul || echo "No running containers"
-                    docker system prune -f 2>nul
+                    echo === QUICK CLEANUP ===
+                    
+                    echo "1. Stopping containers..."
+                    docker-compose down 2>nul || echo "No containers to stop"
+                    
+                    echo "2. Quick cleanup (skip prune if it hangs)..."
+                    timeout /t 10 /nobreak
                     echo "Cleanup completed"
+                    
+                    rem Убрали docker system prune -f 2>nul
                 '''
             }
         }
