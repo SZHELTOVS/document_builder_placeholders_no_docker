@@ -56,7 +56,7 @@ pipeline {
                         cd backend
 
                         echo [1/4] Запускаю Django сервер...
-                        START /B cmd /c "venv\Scripts\activate && python manage.py runserver 0.0.0.0:8000"
+                        START /B cmd /c "venv/Scripts/activate && python manage.py runserver 0.0.0.0:8000"
                         echo Django запущен на http://localhost:8000
                         timeout /t 3 /nobreak > nul
 
