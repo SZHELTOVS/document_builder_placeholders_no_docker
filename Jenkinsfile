@@ -74,10 +74,10 @@ pipeline {
                         timeout /t 3 /nobreak > nul
                     '''
                     
-                    // Проверяем что процессы запустились
+                    
                     bat '''
                         @echo off
-                        echo.
+                        echo.s
                         echo === CHECKING RUNNING SERVICES ===
                         echo Python processes:
                         tasklist | findstr "python.exe"
@@ -91,7 +91,7 @@ pipeline {
                         timeout /t 5 /nobreak > nul
                     '''
                     
-                    // Создаем файл-подтверждение запуска
+                    
                     bat '''
                         @echo off
                         echo === PROJECT STARTED SUCCESSFULLY === > project_running.txt
