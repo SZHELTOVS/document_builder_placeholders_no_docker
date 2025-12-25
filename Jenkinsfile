@@ -48,45 +48,40 @@ pipeline {
         stage('RUN PROJECT - Permanent') {
             steps {
                 script {
-                    echo 'Starting servers in background...'
+                    echo 'Creating permanent server processes...'
                     
                     bat '''
                         @echo off
                         echo ================================================
-                        echo STARTING SERVERS AUTOMATICALLY...
+                        echo CREATING PERMANENT SERVER PROCESSES
                         echo ================================================
                         
-                        REM Создаем файл статуса СНАЧАЛА (чтобы не падал archive)
-                        echo Servers auto-started at %date% %time% > servers_running.txt
-                        echo Status: STARTING... >> servers_running.txt
-                        
+                        REM Backend как постоянный процесс
                         cd backend
+                        start /min "Django Server" venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
                         
-                        REM Backend: Django без активации venv (прямой путь)
-                        start /B "" venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
-                        
-                        REM Frontend: npm dev
+                        REM Frontend как постоянный процесс  
                         cd frontend
-                        start /B "" cmd /c "npm run dev"
+                        start /min "Quasar Dev" cmd /c "npm run dev"
+                        
+                        REM Ждём 3 сек для запуска
+                        timeout /t 3 /nobreak >nul
                         
                         cd ..\\..
-                        echo ================================================
-                        echo SERVERS STARTED SUCCESSFULLY!
-                        echo ================================================
-                        echo BACKEND: http://localhost:8000
-                        echo FRONTEND: http://localhost:3000
-                        echo ================================================
-                        echo Status: RUNNING >> servers_running.txt
-                        type servers_running.txt
+                        echo Servers started with MINIMIZED windows!
+                        echo BACKEND: http://localhost:8000 >> servers_running.txt
+                        echo FRONTEND: http://localhost:3000 >> servers_running.txt
+                        echo Time: %date% %time% >> servers_running.txt
                     '''
                     
-                    // Теперь файл точно существует
                     archiveArtifacts artifacts: 'servers_running.txt', allowEmptyArchive: true
+                    sleep(time: 5, unit: 'SECONDS')
                     
-                    echo '✅ Servers auto-started! Check localhost:8000'
+                    echo '✅ Servers started with MINIMIZED windows! Check taskbar!'
                 }
             }
         }
+
 
 
         
