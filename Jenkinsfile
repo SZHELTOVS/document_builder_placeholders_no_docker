@@ -48,89 +48,89 @@ pipeline {
         stage('RUN PROJECT - Permanent') {
             steps {
                 script {
-                    echo 'Запускаю сервер как отдельную службу...'
+                    echo 'Starting server as separate service...'
                     
-                    // 1. Запускаем Django как Windows службу (не зависит от Jenkins)
+                    // 1. Start Django as Windows service
                     bat '''
                         @echo off
-                        echo Создаю запуск сервера как отдельного процесса...
+                        echo Creating server startup script...
                         cd backend
                         
-                        echo Создаю батник для запуска Django...
+                        echo Creating batch file for Django...
                         echo @echo off > start_django.bat
-                        echo cd /d "%~dp0" >> start_django.bat
+                        echo cd /d "%%~dp0" >> start_django.bat
                         echo venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000 >> start_django.bat
                         
-                        echo Запускаю Django в отдельном окне...
+                        echo Starting Django in separate window...
                         start "DjangoServer" cmd /k start_django.bat
-                        echo Django запущен в отдельном процессе!
-                        echo Проверь: http://localhost:8000
+                        echo Django started in separate process!
+                        echo Check: http://localhost:8000
                         
                         timeout /t 5 /nobreak > nul
                     '''
                     
-                    // 2. Запускаем Frontend как отдельную службу
+                    // 2. Start Frontend as separate service
                     bat '''
                         @echo off
-                        echo Создаю батник для запуска Frontend...
+                        echo Creating batch file for Frontend...
                         cd backend\\frontend
                         
                         echo @echo off > start_frontend.bat
-                        echo cd /d "%~dp0" >> start_frontend.bat
+                        echo cd /d "%%~dp0" >> start_frontend.bat
                         echo npm run dev >> start_frontend.bat
                         
-                        echo Запускаю Frontend в отдельном окне...
+                        echo Starting Frontend in separate window...
                         start "FrontendServer" cmd /k start_frontend.bat
-                        echo Frontend запущен в отдельном процессе!
+                        echo Frontend started in separate process!
                         
                         timeout /t 5 /nobreak > nul
                     '''
                     
-                    // 3. Проверяем что процессы запущены и показываем их ID
+                    // 3. Check processes and show their IDs
                     bat '''
                         @echo off
                         echo.
                         echo ================================================
-                        echo СЕРВЕР ЗАПУЩЕН И РАБОТАЕТ!
+                        echo SERVER IS RUNNING!
                         echo ================================================
                         echo.
-                        echo Активные процессы:
+                        echo Active processes:
                         echo.
-                        echo Python процессы (Django):
+                        echo Python processes (Django):
                         wmic process where "name='python.exe'" get ProcessId,CommandLine
                         echo.
-                        echo Node процессы (Frontend):
+                        echo Node processes (Frontend):
                         wmic process where "name='node.exe'" get ProcessId,CommandLine
                         echo.
-                        echo Процессы НЕ будут убиты при завершении Jenkins!
+                        echo Processes will NOT be killed when Jenkins finishes!
                         echo.
-                        echo Доступ:
+                        echo Access:
                         echo Backend: http://localhost:8000
-                        echo Frontend: http://localhost:9000 (или другой порт)
+                        echo Frontend: http://localhost:9000 (or other port)
                         echo.
                         timeout /t 10 /nobreak > nul
                     '''
                     
-                    // 4. Сохраняем информацию о запущенных процессах
+                    // 4. Save information about running processes
                     bat '''
                         @echo off
-                        echo === СЕРВЕР ЗАПУЩЕН === > server_running.txt
-                        echo Время запуска: %date% %time% >> server_running.txt
-                        echo Процессы: >> server_running.txt
+                        echo === SERVER RUNNING === > server_running.txt
+                        echo Start time: %%date%% %%time%% >> server_running.txt
+                        echo Processes: >> server_running.txt
                         echo python.exe - Django backend >> server_running.txt  
                         echo node.exe - Quasar frontend >> server_running.txt
                         echo. >> server_running.txt
-                        echo Сервер продолжит работать после завершения Jenkins >> server_running.txt
-                        echo Чтобы остановить: taskkill /F /IM python.exe /IM node.exe >> server_running.txt
+                        echo Server will continue running after Jenkins finishes >> server_running.txt
+                        echo To stop: taskkill /F /IM python.exe /IM node.exe >> server_running.txt
                         type server_running.txt
                     '''
                     
                     archiveArtifacts artifacts: 'server_running.txt'
                     
-                    echo 'СЕРВЕР ЗАПУЩЕН И РАБОТАЕТ'
+                    echo 'SERVER IS RUNNING'
                     echo 'Backend: http://localhost:8000'
-                    echo 'Frontend: в разработке'
-                    echo 'Процессы продолжают работать независимо от Jenkins'
+                    echo 'Frontend: in development'
+                    echo 'Processes continue to run independently from Jenkins'
                 }
             }
         }
@@ -150,9 +150,9 @@ pipeline {
                         @echo off
                         echo === PRODUCTION DEPLOY === > deploy.txt
                         echo Project: Document Builder >> deploy.txt
-                        echo Branch: %GIT_BRANCH% >> deploy.txt
+                        echo Branch: %%GIT_BRANCH%% >> deploy.txt
                         echo Commit: ${commitHash} >> deploy.txt
-                        echo Time: %date% %time% >> deploy.txt
+                        echo Time: %%date%% %%time%% >> deploy.txt
                         echo Status: DEPLOYED >> deploy.txt
                         echo Tests: 6/6 passed >> deploy.txt
                         echo Services: running >> deploy.txt
