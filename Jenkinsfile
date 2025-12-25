@@ -52,21 +52,21 @@ pipeline {
                     
                     bat '''
                         @echo off
-                        echo ================================================
-                        echo STARTING SERVERS WITH PYTHON SCRIPT
-                        echo ================================================
-                        
+                        REM Backend
                         cd backend
-                        start /min "Django+Quasar" python -u ..\\start_servers.py
+                        start /min "Django Server" venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
                         
-                        timeout /t 5 /nobreak >nul
+                        REM Frontend (правильная команда)
+                        cd frontend
+                        start /min "Quasar Dev" cmd /k "npm run dev"
                         
-                        echo Servers started with MINIMIZED window! > servers_running.txt
-                        echo Backend: http://localhost:8000 >> servers_running.txt
-                        echo Frontend: http://localhost:9000 >> servers_running.txt
-                        echo Time: %date% %time% >> servers_running.txt
-                        type servers_running.txt
+                        REM Ждать запуска
+                        timeout /t 10 /nobreak >nul
+                        
+                        echo Backend: http://localhost:8000/admin/ > servers.txt
+                        echo Frontend: http://localhost:9000/ >> servers.txt
                     '''
+
                     
                     archiveArtifacts artifacts: 'servers_running.txt', allowEmptyArchive: true
                     sleep(time: 8, unit: 'SECONDS')
