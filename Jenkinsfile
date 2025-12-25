@@ -34,14 +34,10 @@ pipeline {
                     @echo off
                     echo === QUICK CLEANUP ===
                     
-                    echo "1. Stopping containers..."
-                    docker-compose down 2>nul || echo "No containers to stop"
+                    echo "1. Stopping containers (FORCE)..."
+                    docker-compose down -f 2>nul || echo "No compose project found"
                     
-                    echo "2. Quick cleanup (skip prune if it hangs)..."
-                    timeout /t 10 /nobreak
-                    echo "Cleanup completed"
-                    
-                    rem Убрали docker system prune -f 2>nul
+                    echo "2. Done!"
                 '''
             }
         }
@@ -49,7 +45,6 @@ pipeline {
         stage('Build Images') {
             steps {
                 script {
-                    // Собираем бэкенд
                     try {
                         bat '''
                             @echo off
@@ -60,7 +55,6 @@ pipeline {
                         error "Backend build failed: ${e.getMessage()}"
                     }
                     
-                    // Пробуем собрать фронтенд, но не падаем
                     try {
                         bat '''
                             @echo off
@@ -102,7 +96,6 @@ pipeline {
         stage('Verify Services') {
             steps {
                 script {
-                    // Даем больше времени для запуска
                     sleep(time: 10, unit: 'SECONDS')
                     
                     bat '''
@@ -111,9 +104,9 @@ pipeline {
                         
                         echo "1. Checking PostgreSQL..."
                         docker-compose exec -T postgres pg_isready -U user -d document_builder && (
-                            echo "✓ PostgreSQL is ready"
+                            echo "PostgreSQL is ready"
                         ) || (
-                            echo "✗ PostgreSQL is not ready"
+                            echo "PostgreSQL is not ready"
                             echo "Postgres logs:"
                             docker-compose logs --tail=10 postgres
                         )
@@ -121,9 +114,9 @@ pipeline {
                         echo.
                         echo "2. Checking backend (Django)..."
                         curl --max-time 20 --retry 3 --retry-delay 5 --retry-max-time 60 -f http://localhost:8000/ && (
-                            echo "✓ Backend is running at http://localhost:8000/"
+                            echo "Backend is running at http://localhost:8000/"
                         ) || (
-                            echo "✗ Backend is not responding"
+                            echo "Backend is not responding"
                             echo "Checking backend logs..."
                             docker-compose logs --tail=20 backend
                         )
@@ -131,9 +124,9 @@ pipeline {
                         echo.
                         echo "3. Checking frontend (Quasar)..."
                         curl --max-time 20 --retry 2 --retry-delay 5 -f http://localhost:9000/ && (
-                            echo "✓ Frontend is running at http://localhost:9000/"
+                            echo "Frontend is running at http://localhost:9000/"
                         ) || (
-                            echo "⚠ Frontend is not responding (might still be starting)"
+                            echo "Frontend is not responding (might still be starting)"
                             echo "Frontend can take 1-2 minutes to build on first run..."
                             docker-compose logs --tail=10 frontend
                         )
