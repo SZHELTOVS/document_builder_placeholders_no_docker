@@ -56,43 +56,38 @@ pipeline {
                         echo STARTING SERVERS AUTOMATICALLY...
                         echo ================================================
                         
+                        REM Создаем файл статуса СНАЧАЛА (чтобы не падал archive)
+                        echo Servers auto-started at %date% %time% > servers_running.txt
+                        echo Status: STARTING... >> servers_running.txt
+                        
                         cd backend
                         
-                        REM Backend: activate venv and start Django (background)
-                        venv\\Scripts\\activate.bat && start /B venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
+                        REM Backend: Django без активации venv (прямой путь)
+                        start /B "" venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
                         
-                        REM Frontend: start npm dev (background) 
+                        REM Frontend: npm dev
                         cd frontend
-                        start /B cmd /k "npm run dev"
+                        start /B "" cmd /c "npm run dev"
                         
                         cd ..\\..
-                        echo.
                         echo ================================================
                         echo SERVERS STARTED SUCCESSFULLY!
                         echo ================================================
                         echo BACKEND: http://localhost:8000
-                        echo FRONTEND: http://localhost:3000 (или порт из npm)
+                        echo FRONTEND: http://localhost:3000
                         echo ================================================
-                        echo Time: %date% %time%
-                        echo Status: RUNNING
-                        echo Tests: 6/6 PASSED
-                        type nul > servers_running.txt
-                        echo Servers auto-started at %date% %time% > servers_running.txt
+                        echo Status: RUNNING >> servers_running.txt
+                        type servers_running.txt
                     '''
                     
-                    // Архивируем статус (не блокируемся на серверах)
-                    archiveArtifacts artifacts: 'servers_running.txt', fingerprint: true
+                    // Теперь файл точно существует
+                    archiveArtifacts artifacts: 'servers_running.txt', allowEmptyArchive: true
                     
-                    echo '================================================'
-                    echo '✅ CI/CD COMPLETE! Servers auto-started!'
-                    echo '================================================'
-                    echo 'Backend: http://localhost:8000'
-                    echo 'Frontend: http://localhost:3000 (проверьте консоль npm)'
-                    echo 'Servers run in background - pipeline FINISHED ✓'
-                    echo '================================================'
+                    echo '✅ Servers auto-started! Check localhost:8000'
                 }
             }
         }
+
 
         
         stage('Deploy to Production') {
