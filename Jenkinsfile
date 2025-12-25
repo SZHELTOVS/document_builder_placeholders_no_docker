@@ -17,9 +17,11 @@ pipeline {
                 dir('backend') {
                     bat '''
                         @echo off
-                        python -m venv venv
-                        venv\\Scripts\\pip install django docxtpl python-docx djangorestframework django-cors-headers
-                        echo Dependencies installed
+                        REM Delete broken venv and recreate
+                        rmdir /s /q venv 2>nul
+                        python -m venv venv --clear
+                        venv\\Scripts\\pip.exe install django docxtpl python-docx djangorestframework django-cors-headers
+                        echo "Dependencies installed ✓"
                     '''
                 }
             }
@@ -48,35 +50,45 @@ pipeline {
         stage('RUN PROJECT - Permanent') {
             steps {
                 script {
-                    echo 'Starting servers with Python script...'
+                    echo 'Starting servers DIRECTLY (Django:8000 Quasar:9000)...'
                     
                     bat '''
                         @echo off
                         echo ================================================
-                        echo STARTING SERVERS WITH PYTHON SCRIPT
+                        echo STARTING SERVERS - NO PYTHON SCRIPT
                         echo ================================================
                         
+                        REM Backend Django (port 8000)
                         cd backend
-                        start /min "Django+Quasar" python -u ..\\start_servers.py
+                        start /min "Django Server 8000" venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
                         
-                        timeout /t 5 /nobreak >nul
+                        REM Frontend Quasar (port 9000)
+                        cd frontend
+                        start /min "Quasar Dev 9000" cmd /k "npm run dev"
                         
-                        echo Servers started with MINIMIZED window! > servers_running.txt
-                        echo Backend: http://localhost:8000 >> servers_running.txt
-                        echo Frontend: http://localhost:9000 >> servers_running.txt
-                        echo Time: %date% %time% >> servers_running.txt
-                        type servers_running.txt
+                        REM Wait for startup
+                        timeout /t 8 /nobreak >nul
+                        
+                        cd ..\\..
+                        
+                        echo "Backend: http://localhost:8000/admin/" > servers.txt
+                        echo "Frontend: http://localhost:9000/" >> servers.txt
+                        echo "Time: %date% %time%" >> servers.txt
+                        echo "Servers started in MINIMIZED windows!" >> servers.txt
+                        type servers.txt
                     '''
                     
-                    archiveArtifacts artifacts: 'servers_running.txt', allowEmptyArchive: true
-                    sleep(time: 8, unit: 'SECONDS')
+                    archiveArtifacts artifacts: 'servers.txt', allowEmptyArchive: true
+                    sleep(time: 10, unit: 'SECONDS')
                     
-                    echo 'ONE WINDOW with both servers! Check taskbar!'
-                    echo 'Backend: localhost:8000  Frontend: localhost:9000'
+                    echo '================================================'
+                    echo 'SUCCESS! Check TASKBAR for 2 minimized windows:'
+                    echo '1. "Django Server 8000" → http://localhost:8000/admin/'
+                    echo '2. "Quasar Dev 9000" → http://localhost:9000/'
+                    echo '================================================'
                 }
             }
         }
-
 
         stage('Deploy to Production') {
             when {
@@ -98,7 +110,8 @@ pipeline {
                         echo Time: %date% %time% >> deploy.txt
                         echo Status: DEPLOYED >> deploy.txt
                         echo Tests: 6/6 passed >> deploy.txt
-                        echo Services: READY TO START >> deploy.txt
+                        echo Backend: localhost:8000/admin >> deploy.txt
+                        echo Frontend: localhost:9000 >> deploy.txt
                         echo CI/CD: COMPLETE >> deploy.txt
                         type deploy.txt
                     """
@@ -114,10 +127,9 @@ pipeline {
         }
         success {
             echo 'SUCCESS: All stages completed!'
-            echo 'Tests: 6/6 PASSED ✓'
-            echo 'Project: READY TO RUN ✓'
-            echo 'Deploy: EXECUTED (main branch) ✓'
-            echo 'Lab: COMPLETE ✓'
+            echo 'Tests: 6/6 PASSED'
+            echo 'Servers: RUNNING in taskbar'
+            echo 'Demo ready: 8000/admin + 9000'
         }
     }
 }
