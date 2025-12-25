@@ -42,7 +42,6 @@ class DocumentBuilderTests(TestCase):
         self.assertGreaterEqual(len(found_dirs), 1, 
                             f"Должна быть хотя бы одна из папок: {important_dirs}")
         
-        print(f"CI/CD Тест 3: Найдены папки: {found_dirs}")
         
     def test_django_functionality(self):
         """Тест функциональности Django"""
