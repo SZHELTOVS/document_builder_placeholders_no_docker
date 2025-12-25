@@ -71,11 +71,12 @@ pipeline {
                     archiveArtifacts artifacts: 'servers_running.txt', allowEmptyArchive: true
                     sleep(time: 8, unit: 'SECONDS')
                     
-                    echo '✅ ONE WINDOW with both servers! Check taskbar!'
+                    echo 'ONE WINDOW with both servers! Check taskbar!'
                     echo 'Backend: localhost:8000  Frontend: localhost:9000'
                 }
             }
         }
+
 
         stage('Deploy to Production') {
             when {
