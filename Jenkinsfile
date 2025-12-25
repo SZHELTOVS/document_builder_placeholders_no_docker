@@ -50,50 +50,63 @@ pipeline {
                 script {
                     echo 'Starting server as separate service...'
                     
+                    // Запуск Django сервера
                     bat '''
                         @echo off
                         cd backend
-                        
-                        echo [1/4] Starting Django server...
-                        START /B venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
+                        echo [1/3] Starting Django server in background...
+                        start "DjangoServer" /B venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
                         echo Django started on http://localhost:8000
                         timeout /t 3 /nobreak > nul
-                        
-                        echo [2/4] Creating status file...
-                        echo === SERVER STATUS === > ..\\server_running.txt
-                        echo Start time: %date% %time% >> ..\\server_running.txt
-                        echo Django: http://localhost:8000 >> ..\\server_running.txt
-                        echo Frontend: starting... >> ..\\server_running.txt
-                        echo Processes will continue after Jenkins stops >> ..\\server_running.txt
-                        type ..\\server_running.txt
-                        
-                        echo [3/4] Going to frontend folder...
-                        cd frontend
-                        
-                        echo [4/4] Starting Frontend (Quasar)...
-                        START /B npm run dev
-                        echo Frontend started (usually on http://localhost:9000 or 8080)
-                        echo Check frontend output above for exact port
-                        timeout /t 3 /nobreak > nul
-                        
+                    '''
+                    
+                    // Создание статус файла
+                    bat '''
+                        @echo off
+                        echo [2/3] Creating status file...
+                        echo === SERVER STATUS === > server_status.txt
+                        echo Start time: %date% %time% >> server_status.txt
+                        echo Django: http://localhost:8000 >> server_status.txt
+                        echo Frontend: Starting soon... >> server_status.txt
+                        echo. >> server_status.txt
+                        echo Processes: >> server_status.txt
+                        tasklist | findstr "python node" >> server_status.txt
+                        type server_status.txt
+                    '''
+                    
+                    // Запуск Frontend
+                    bat '''
+                        @echo off
+                        echo [3/3] Starting Frontend...
+                        cd backend\\frontend
+                        start "FrontendServer" /B npm run dev
+                        echo Frontend starting...
+                        echo Check console for Quasar output
+                        timeout /t 5 /nobreak > nul
+                    '''
+                    
+                    // Проверка процессов
+                    bat '''
+                        @echo off
                         echo ================================================
-                        echo SERVERS STARTED SUCCESSFULLY!
+                        echo CHECKING RUNNING PROCESSES:
+                        tasklist | findstr "python node"
                         echo ================================================
-                        echo Django:  http://localhost:8000
-                        echo Frontend: check npm output above for port
-                        echo 
-                        echo Processes continue to run after Jenkins finishes
-                        echo To stop: taskkill /F /IM python.exe /IM node.exe
+                        echo SERVERS SHOULD BE RUNNING!
+                        echo ================================================
+                        echo Django: http://localhost:8000
+                        echo Frontend: check npm output above
+                        echo ================================================
+                        echo Note: Jenkins will show exit code 1 for 'start' commands
+                        echo but servers should continue running independently
                         echo ================================================
                     '''
                     
-                    // Архивация должна быть вне bat блока
-                    archiveArtifacts artifacts: 'server_running.txt'
+                    archiveArtifacts artifacts: 'server_status.txt'
                     
                     echo 'SERVER IS RUNNING'
                     echo 'Backend: http://localhost:8000'
                     echo 'Frontend: check console output for port'
-                    echo 'Processes continue to run independently from Jenkins'
                 }
             }
         }
@@ -137,7 +150,6 @@ pipeline {
             echo 'Tests: 6/6 PASSED'
             echo 'Project: RUNNING'
             echo 'Deploy: EXECUTED (main branch)'
-            echo 'Lab: COMPLETE'
         }
     }
 }
