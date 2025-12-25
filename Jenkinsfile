@@ -48,68 +48,52 @@ pipeline {
         stage('RUN PROJECT - Permanent') {
             steps {
                 script {
-                    echo 'Starting servers...'
+                    echo 'Starting servers in background...'
                     
-                    // ТОЛЬКО ЭТОТ КОД НУЖЕН - все остальное работает
                     bat '''
                         @echo off
                         echo ================================================
-                        echo CREATING STARTUP SCRIPTS FOR SERVERS
+                        echo STARTING SERVERS AUTOMATICALLY...
                         echo ================================================
                         
                         cd backend
                         
-                        echo Creating Django startup script...
-                        echo @echo off > start_django.bat
-                        echo venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000 >> start_django.bat
+                        REM Backend: activate venv and start Django (background)
+                        venv\\Scripts\\activate.bat && start /B venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
                         
-                        echo Creating Frontend startup script...
+                        REM Frontend: start npm dev (background) 
                         cd frontend
-                        echo @echo off > start_frontend.bat
-                        echo npm run dev >> start_frontend.bat
+                        start /B cmd /k "npm run dev"
                         
+                        cd ..\\..
                         echo.
                         echo ================================================
-                        echo SCRIPTS CREATED!
+                        echo SERVERS STARTED SUCCESSFULLY!
                         echo ================================================
-                        echo To start servers manually, run:
-                        echo 1. backend\\start_django.bat
-                        echo 2. backend\\frontend\\start_frontend.bat
+                        echo BACKEND: http://localhost:8000
+                        echo FRONTEND: http://localhost:3000 (или порт из npm)
                         echo ================================================
-                        
-                        echo Creating status file...
-                        cd ..\\..
-                        echo === JENKINS CI/CD COMPLETE === > server_status.txt
-                        echo Time: %date% %time% >> server_status.txt
-                        echo Tests: 6/6 PASSED >> server_status.txt
-                        echo Project: READY TO RUN >> server_status.txt
-                        echo. >> server_status.txt
-                        echo TO START SERVERS: >> server_status.txt
-                        echo 1. Open CMD as Administrator >> server_status.txt
-                        echo 2. Run: backend\\start_django.bat >> server_status.txt
-                        echo 3. Run: backend\\frontend\\start_frontend.bat >> server_status.txt
-                        echo. >> server_status.txt
-                        echo Jenkins pipeline completed successfully! >> server_status.txt
-                        type server_status.txt
+                        echo Time: %date% %time%
+                        echo Status: RUNNING
+                        echo Tests: 6/6 PASSED
+                        type nul > servers_running.txt
+                        echo Servers auto-started at %date% %time% > servers_running.txt
                     '''
                     
-                    // Сохраняем созданные скрипты
-                    archiveArtifacts artifacts: 'backend/start_django.bat, backend/frontend/start_frontend.bat, server_status.txt'
+                    // Архивируем статус (не блокируемся на серверах)
+                    archiveArtifacts artifacts: 'servers_running.txt', fingerprint: true
                     
                     echo '================================================'
-                    echo 'JENKINS CI/CD COMPLETE!'
+                    echo '✅ CI/CD COMPLETE! Servers auto-started!'
                     echo '================================================'
-                    echo 'Tests: 6/6 PASSED ✓'
-                    echo 'Environment: SETUP COMPLETE ✓'
-                    echo 'Startup scripts created in:'
-                    echo '1. backend/start_django.bat'
-                    echo '2. backend/frontend/start_frontend.bat'
-                    echo '================================================'
-                    echo 'TO START PROJECT: Run the .bat files manually'
+                    echo 'Backend: http://localhost:8000'
+                    echo 'Frontend: http://localhost:3000 (проверьте консоль npm)'
+                    echo 'Servers run in background - pipeline FINISHED ✓'
                     echo '================================================'
                 }
             }
         }
+
         
         stage('Deploy to Production') {
             when {

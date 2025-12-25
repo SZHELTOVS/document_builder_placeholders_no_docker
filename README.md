@@ -4,9 +4,8 @@ RUN PROJECT
 
 backend:
 
-cd backend
+.\.venv\Scripts\Activate.ps1
 
-.\venv\Scripts\activate
 
 python .\manage.py runserver
 
