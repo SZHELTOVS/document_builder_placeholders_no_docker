@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # PostgreSQL база данных
+  postgres:
+    image: postgres:15-alpine
+    container_name: docbuilder-db
+    environment:
+      POSTGRES_DB: document_builder
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5433:5432"  # Используем 5433 чтобы не конфликтовать с локальной Postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Django бэкенд
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: docbuilder-backend
+    environment:
+      DB_NAME: document_builder
+      DB_USER: user
+      DB_PASSWORD: password
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DEBUG: "True"
+      DJANGO_SETTINGS_MODULE: backend.settings
+      PYTHONUNBUFFERED: "1"
+      ALLOWED_HOSTS: "*"  # Разрешаем все для разработки
+      CORS_ALLOW_ALL_ORIGINS: "True"  # Разрешаем CORS для фронтенда
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app  # Hot reload для Django
+    depends_on:
+      - postgres
+    command: >
+      sh -c "sleep 5 &&
+             python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+
+  # Quasar фронтенд
+  frontend:
+    build:
+      context: ./backend/frontend
+      dockerfile: Dockerfile
+    container_name: docbuilder-frontend
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./backend/frontend:/app  # Hot reload для Quasar
+      - /app/node_modules  # Изолируем node_modules
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 9000
+      QUASAR_PUBLIC_FOLDER: .
+    stdin_open: true  # Для интерактивного режима
+    tty: true         # Для терминала
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
