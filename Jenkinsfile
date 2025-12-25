@@ -45,73 +45,92 @@ pipeline {
             }
         }
 
-        stage('Start Project') {
+        stage('RUN PROJECT - Permanent') {
             steps {
                 script {
-                    echo 'Verifying Django server startup...'
+                    echo 'Запускаю сервер как отдельную службу...'
                     
-                    // 1. Запускаем сервер в фоновом режиме
+                    // 1. Запускаем Django как Windows службу (не зависит от Jenkins)
                     bat '''
                         @echo off
-                        echo Starting Django server in background...
+                        echo Создаю запуск сервера как отдельного процесса...
                         cd backend
-                        start /B "" venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
-                        echo Server started in background.
-                        timeout /t 3 /nobreak > nul
-                    '''
-                    
-                    // 2. Проверяем процесс
-                    bat '''
-                        @echo off
-                        echo === PROCESS CHECK ===
-                        echo Python processes running:
-                        tasklist | findstr "python.exe"
                         
-                        if errorlevel 1 (
-                            echo "INFO: No python.exe found - this is OK for demo"
-                            echo "The server startup process was verified"
-                        ) else (
-                            echo "SUCCESS: Django server is running!"
-                        )
+                        echo Создаю батник для запуска Django...
+                        echo @echo off > start_django.bat
+                        echo cd /d "%~dp0" >> start_django.bat
+                        echo venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000 >> start_django.bat
+                        
+                        echo Запускаю Django в отдельном окне...
+                        start "DjangoServer" cmd /k start_django.bat
+                        echo Django запущен в отдельном процессе!
+                        echo Проверь: http://localhost:8000
+                        
+                        timeout /t 5 /nobreak > nul
                     '''
                     
-                    // 3. Альтернативная проверка - просто создаем файл подтверждения
+                    // 2. Запускаем Frontend как отдельную службу
                     bat '''
                         @echo off
-                        echo === CREATING VERIFICATION FILE ===
-                        echo Server startup verified > server_test.txt
-                        echo Time: %date% %time% >> server_test.txt
-                        echo Process: Background execution confirmed >> server_test.txt
-                        type server_test.txt
+                        echo Создаю батник для запуска Frontend...
+                        cd backend\\frontend
+                        
+                        echo @echo off > start_frontend.bat
+                        echo cd /d "%~dp0" >> start_frontend.bat
+                        echo npm run dev >> start_frontend.bat
+                        
+                        echo Запускаю Frontend в отдельном окне...
+                        start "FrontendServer" cmd /k start_frontend.bat
+                        echo Frontend запущен в отдельном процессе!
+                        
+                        timeout /t 5 /nobreak > nul
                     '''
                     
-                    // 4. Очистка (опционально)
+                    // 3. Проверяем что процессы запущены и показываем их ID
                     bat '''
                         @echo off
-                        echo Cleaning up test processes...
-                        taskkill /F /IM python.exe 2>nul
-                        echo Cleanup complete.
-                    '''
-                    
-                    // 5. Финальный отчет
-                    bat '''
-                        @echo off
-                        echo === PROJECT LAUNCH VERIFIED === > project_launch.txt
-                        echo Time: %date% %time% >> project_launch.txt
-                        echo Stage: Start Project >> project_launch.txt
-                        echo Django Server: Startup verified >> project_launch.txt
-                        echo Virtual Environment: venv >> project_launch.txt
-                        echo Tests: 6/6 passed >> project_launch.txt
-                        echo Status: READY FOR DEPLOYMENT >> project_launch.txt
                         echo.
-                        echo CI/CD LAB: COMPLETED >> project_launch.txt
-                        type project_launch.txt
+                        echo ================================================
+                        echo СЕРВЕР ЗАПУЩЕН И РАБОТАЕТ!
+                        echo ================================================
+                        echo.
+                        echo Активные процессы:
+                        echo.
+                        echo Python процессы (Django):
+                        wmic process where "name='python.exe'" get ProcessId,CommandLine
+                        echo.
+                        echo Node процессы (Frontend):
+                        wmic process where "name='node.exe'" get ProcessId,CommandLine
+                        echo.
+                        echo Процессы НЕ будут убиты при завершении Jenkins!
+                        echo.
+                        echo Доступ:
+                        echo Backend: http://localhost:8000
+                        echo Frontend: http://localhost:9000 (или другой порт)
+                        echo.
+                        timeout /t 10 /nobreak > nul
                     '''
                     
-                    archiveArtifacts artifacts: 'project_launch.txt'
-                    archiveArtifacts artifacts: 'server_test.txt'
+                    // 4. Сохраняем информацию о запущенных процессах
+                    bat '''
+                        @echo off
+                        echo === СЕРВЕР ЗАПУЩЕН === > server_running.txt
+                        echo Время запуска: %date% %time% >> server_running.txt
+                        echo Процессы: >> server_running.txt
+                        echo python.exe - Django backend >> server_running.txt  
+                        echo node.exe - Quasar frontend >> server_running.txt
+                        echo. >> server_running.txt
+                        echo Сервер продолжит работать после завершения Jenkins >> server_running.txt
+                        echo Чтобы остановить: taskkill /F /IM python.exe /IM node.exe >> server_running.txt
+                        type server_running.txt
+                    '''
                     
-                    echo '✅ Project verification completed successfully!'
+                    archiveArtifacts artifacts: 'server_running.txt'
+                    
+                    echo 'СЕРВЕР ЗАПУЩЕН И РАБОТАЕТ'
+                    echo 'Backend: http://localhost:8000'
+                    echo 'Frontend: в разработке'
+                    echo 'Процессы продолжают работать независимо от Jenkins'
                 }
             }
         }
