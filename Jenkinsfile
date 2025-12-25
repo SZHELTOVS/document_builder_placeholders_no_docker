@@ -17,16 +17,13 @@ pipeline {
                 dir('backend') {
                     bat '''
                         @echo off
-                        REM Удаляем проблемный venv и пересоздаем
-                        rmdir /s /q venv 2>nul
-                        python -m venv venv --clear
-                        venv\\Scripts\\pip.exe install django docxtpl python-docx djangorestframework django-cors-headers
-                        echo Dependencies installed ✓
+                        python -m venv venv
+                        venv\\Scripts\\pip install django docxtpl python-docx djangorestframework django-cors-headers
+                        echo Dependencies installed
                     '''
                 }
             }
         }
-
         
         stage('Install Frontend') {
             steps {
@@ -51,37 +48,34 @@ pipeline {
         stage('RUN PROJECT - Permanent') {
             steps {
                 script {
-                    echo 'Starting servers DIRECTLY...'
+                    echo 'Starting servers with Python script...'
+                    
                     bat '''
                         @echo off
                         echo ================================================
-                        echo STARTING SERVERS (Django:8000 Quasar:9000)
+                        echo STARTING SERVERS WITH PYTHON SCRIPT
                         echo ================================================
                         
-                        REM Backend Django
                         cd backend
-                        start /min "Django 8000" venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
+                        start /min "Django+Quasar" python -u ..\\start_servers.py
                         
-                        REM Frontend Quasar  
-                        cd frontend
-                        start /min "Quasar 9000" cmd /k "npm run dev"
+                        timeout /t 5 /nobreak >nul
                         
-                        REM Ждем запуска
-                        timeout /t 8 /nobreak >nul
-                        
-                        cd ..\\..
-                        echo Backend: http://localhost:8000/admin/ > servers.txt
-                        echo Frontend: http://localhost:9000/ >> servers.txt
-                        echo Time: %date% %time% >> servers.txt
-                        type servers.txt
+                        echo Servers started with MINIMIZED window! > servers_running.txt
+                        echo Backend: http://localhost:8000 >> servers_running.txt
+                        echo Frontend: http://localhost:9000 >> servers_running.txt
+                        echo Time: %date% %time% >> servers_running.txt
+                        type servers_running.txt
                     '''
-                    archiveArtifacts artifacts: 'servers.txt', allowEmptyArchive: true
-                    sleep(time: 10, unit: 'SECONDS')
-                    echo '✅ Servers MINIMIZED in taskbar! Check: 8000/admin + 9000'
+                    
+                    archiveArtifacts artifacts: 'servers_running.txt', allowEmptyArchive: true
+                    sleep(time: 8, unit: 'SECONDS')
+                    
+                    echo '✅ ONE WINDOW with both servers! Check taskbar!'
+                    echo 'Backend: localhost:8000  Frontend: localhost:9000'
                 }
             }
         }
-
 
         stage('Deploy to Production') {
             when {
