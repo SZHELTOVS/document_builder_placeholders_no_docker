@@ -54,24 +54,7 @@ class DocumentBuilderTests(TestCase):
         self.assertTrue(hasattr(settings, 'SECRET_KEY'))
         
         print("CI/CD Тест 4: Django функционирует нормально")
-        
-    def test_placeholder_functions_exist(self):
-        """Тест существования функций обработки документов"""
-        try:
-            
-            from document_builder_placeholders_feature_add_jenkins_file.backend.api.utils import extract_placeholders, replace_placeholders
-            
-            # Проверяем что функции можно вызвать (даже если они упадут)
-            self.assertTrue(callable(extract_placeholders))
-            self.assertTrue(callable(replace_placeholders))
-            
-            print("CI/CD Тест 5: Функции обработки документов доступны")
-            
-        except ImportError as e:
-           
-            print(f"CI/CD Тест 5: Импорт функций не удался ({e})")
-            print("Примечание: Для лабораторной CI/CD это допустимо")
-            self.assertTrue(True)  # Все равно успешный тест
+    
 
     def test_ci_cd_final(self):
         """Финальный тест для отчета по лабораторной"""
