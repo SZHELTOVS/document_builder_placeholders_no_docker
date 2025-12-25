@@ -48,43 +48,35 @@ pipeline {
         stage('RUN PROJECT - Permanent') {
             steps {
                 script {
-                    echo 'Creating permanent server processes...'
+                    echo 'Starting servers with Python script...'
                     
                     bat '''
                         @echo off
                         echo ================================================
-                        echo CREATING PERMANENT SERVER PROCESSES
+                        echo STARTING SERVERS WITH PYTHON SCRIPT
                         echo ================================================
                         
-                        REM Backend как постоянный процесс
                         cd backend
-                        start /min "Django Server" venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
+                        start /min "Django+Quasar" python -u ..\\start_servers.py
                         
-                        REM Frontend как постоянный процесс  
-                        cd frontend
-                        start /min "Quasar Dev" cmd /c "npm run dev"
+                        timeout /t 5 /nobreak >nul
                         
-                        REM Ждём 3 сек для запуска
-                        timeout /t 3 /nobreak >nul
-                        
-                        cd ..\\..
-                        echo Servers started with MINIMIZED windows!
-                        echo BACKEND: http://localhost:8000 >> servers_running.txt
-                        echo FRONTEND: http://localhost:3000 >> servers_running.txt
+                        echo Servers started with MINIMIZED window! > servers_running.txt
+                        echo Backend: http://localhost:8000 >> servers_running.txt
+                        echo Frontend: http://localhost:9000 >> servers_running.txt
                         echo Time: %date% %time% >> servers_running.txt
+                        type servers_running.txt
                     '''
                     
                     archiveArtifacts artifacts: 'servers_running.txt', allowEmptyArchive: true
-                    sleep(time: 5, unit: 'SECONDS')
+                    sleep(time: 8, unit: 'SECONDS')
                     
-                    echo '✅ Servers started with MINIMIZED windows! Check taskbar!'
+                    echo '✅ ONE WINDOW with both servers! Check taskbar!'
+                    echo 'Backend: localhost:8000  Frontend: localhost:9000'
                 }
             }
         }
 
-
-
-        
         stage('Deploy to Production') {
             when {
                 expression {
