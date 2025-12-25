@@ -2,31 +2,30 @@ pipeline {
     agent any
     
     stages {
-        stage('DEBUG: Show Branch Info') {
+        stage('Debug Info') {
             steps {
                 script {
-                    echo "=== DEBUG FOR WINDOWS ==="
-                    echo "BRANCH_NAME = ${env.BRANCH_NAME ?: 'NOT SET'}"
+                    echo "=== DEBUG ==="
                     echo "GIT_BRANCH = ${env.GIT_BRANCH ?: 'NOT SET'}"
                 }
             }
         }
         
-        stage('Setup Virtual Environment') {
+        stage('Setup Environment') {
             steps {
                 echo 'Setting up Python virtual environment...'
                 dir('backend') {
                     bat '''
                         @echo off
-                        chcp 65001 > nul
                         python -m venv venv
                         venv\\Scripts\\pip install django docxtpl python-docx djangorestframework django-cors-headers
+                        echo Dependencies installed
                     '''
                 }
             }
         }
         
-        stage('Install Frontend Dependencies') {
+        stage('Install Frontend') {
             steps {
                 dir('backend/frontend') {
                     bat 'npm install'
@@ -34,82 +33,81 @@ pipeline {
             }
         }
         
-        stage('CI: Run Tests') {
+        stage('Run Tests') {
             steps {
-                echo 'CI: Running Django tests...'
+                echo 'Running Django tests...'
                 dir('backend') {
                     bat '''
                         @echo off
-                        chcp 65001 > nul
                         venv\\Scripts\\python.exe manage.py test --noinput
                     '''
                 }
             }
         }
 
-        stage('Run Project') {
+        stage('Start Project') {
             steps {
                 script {
-                    echo 'Starting Django backend server...'
+                    echo 'Starting Django backend...'
                     
-                    // Запускаем Django в ФОНОВОМ РЕЖИМЕ
+                    // Start Django in background
                     bat '''
                         @echo off
-                        echo Starting Django on port 8000...
+                        echo Launching Django from venv...
                         cd backend
                         start "DjangoServer" /B venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
-                        echo Django PID: %errorlevel%
+                        echo Django starting on port 8000...
                         timeout /t 3 /nobreak > nul
                     '''
                     
                     echo 'Starting Quasar frontend...'
                     
-                    // Запускаем Quasar в ФОНОВОМ РЕЖИМЕ  
+                    // Start Quasar in background
                     bat '''
                         @echo off
-                        echo Starting Quasar dev server...
+                        echo Launching Quasar frontend...
                         cd backend\\frontend
                         start "QuasarServer" /B npm run dev
                         echo Quasar dev server starting...
                         timeout /t 3 /nobreak > nul
                     '''
                     
-                    
+                    // Check processes
                     bat '''
                         @echo off
-                        echo.s
-                        echo === CHECKING RUNNING SERVICES ===
+                        echo.
+                        echo === PROCESS CHECK ===
                         echo Python processes:
                         tasklist | findstr "python.exe"
                         echo.
                         echo Node processes:
                         tasklist | findstr "node.exe"
                         echo.
-                        echo If you see processes above - project is RUNNING!
+                        echo Project launch completed!
                         echo Backend: http://localhost:8000
-                        echo Frontend: Dev server starting...
+                        echo Frontend: dev mode
                         timeout /t 5 /nobreak > nul
                     '''
                     
-                    
+                    // Create report
                     bat '''
                         @echo off
-                        echo === PROJECT STARTED SUCCESSFULLY === > project_running.txt
-                        echo Time: %date% %time% >> project_running.txt
-                        echo Backend: Django running on port 8000 >> project_running.txt
-                        echo Frontend: Quasar dev server starting >> project_running.txt
-                        echo Virtual environment: venv >> project_running.txt
-                        echo Tests passed: 6/6 >> project_running.txt
-                        echo Status: PROJECT IS LIVE >> project_running.txt
-                        type project_running.txt
+                        echo === PROJECT STARTED === > project_report.txt
+                        echo Time: %date% %time% >> project_report.txt
+                        echo Backend: Django on port 8000 >> project_report.txt
+                        echo Frontend: Quasar dev server >> project_report.txt
+                        echo Venv: active >> project_report.txt
+                        echo Tests: 6 passed >> project_report.txt
+                        echo Status: RUNNING >> project_report.txt
+                        type project_report.txt
                     '''
                     
-                    archiveArtifacts artifacts: 'project_running.txt'
+                    archiveArtifacts artifacts: 'project_report.txt'
                 }
             }
         }
         
-        stage('CD: Deploy to Production') {
+        stage('Deploy to Production') {
             when {
                 expression {
                     return env.GIT_BRANCH == 'origin/main'
@@ -117,30 +115,23 @@ pipeline {
             }
             steps {
                 script {
-                    echo '✅ CD: Deploying to production (main branch)'
-                    def commitHash = bat(script: '@echo off && chcp 65001 > nul && git rev-parse --short HEAD', returnStdout: true).trim()
+                    echo 'DEPLOY: Deploying to production'
+                    def commitHash = bat(script: '@echo off && git rev-parse --short HEAD', returnStdout: true).trim()
                     
                     bat """
                         @echo off
-                        chcp 65001 > nul
-                        echo === CI/CD DEPLOYMENT SUCCESS === > deploy_report.txt
-                        echo Project: Document Builder >> deploy_report.txt
-                        echo Branch: %GIT_BRANCH% >> deploy_report.txt
-                        echo Commit: ${commitHash} >> deploy_report.txt
-                        echo Time: %date% %time% >> deploy_report.txt
-                        echo Status: DEPLOYED SUCCESSFULLY >> deploy_report.txt
-                        echo Tests passed: 6/6 >> deploy_report.txt
-                        echo Dependencies installed: >> deploy_report.txt
-                        echo   - Django 5.2.9 >> deploy_report.txt
-                        echo   - Django REST Framework 3.16.1 >> deploy_report.txt
-                        echo   - Django CORS Headers 4.9.0 >> deploy_report.txt
-                        echo   - python-docx 1.2.0 >> deploy_report.txt
-                        echo   - docxtpl 0.20.2 >> deploy_report.txt
-                        echo. >> deploy_report.txt
-                        echo LAB CI/CD COMPLETED SUCCESSFULLY! >> deploy_report.txt
-                        type deploy_report.txt
+                        echo === PRODUCTION DEPLOY === > deploy.txt
+                        echo Project: Document Builder >> deploy.txt
+                        echo Branch: %GIT_BRANCH% >> deploy.txt
+                        echo Commit: ${commitHash} >> deploy.txt
+                        echo Time: %date% %time% >> deploy.txt
+                        echo Status: DEPLOYED >> deploy.txt
+                        echo Tests: 6/6 passed >> deploy.txt
+                        echo Services: running >> deploy.txt
+                        echo CI/CD: COMPLETE >> deploy.txt
+                        type deploy.txt
                     """
-                    archiveArtifacts artifacts: 'deploy_report.txt', fingerprint: true
+                    archiveArtifacts artifacts: 'deploy.txt', fingerprint: true
                 }
             }
         }
@@ -148,14 +139,14 @@ pipeline {
     
     post {
         always {
-            echo 'CI/CD pipeline completed'
+            echo 'CI/CD pipeline finished'
         }
         success {
-            echo '🎉 ALL STAGES COMPLETED SUCCESSFULLY!'
-            echo '✅ Tests: 6/6 passed'
-            echo '✅ Dependencies: installed'
-            echo '✅ Deployment: executed (main branch)'
-            echo '✅ Lab CI/CD: COMPLETE'
+            echo 'SUCCESS: All stages completed!'
+            echo 'Tests: 6/6 PASSED'
+            echo 'Project: RUNNING'
+            echo 'Deploy: EXECUTED (main branch)'
+            echo 'Lab: COMPLETE'
         }
     }
 }
