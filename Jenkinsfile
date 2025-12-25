@@ -17,20 +17,23 @@ pipeline {
                     echo "Backend/frontend folder:"
                     dir backend\\frontend /B
                     echo.
-                    echo "Checking frontend package.json:"
-                    type backend\\frontend\\package.json | findstr "name version"
+                    echo "Checking if docker-compose.yml exists..."
+                    if exist docker-compose.yml (
+                        echo "✓ docker-compose.yml found"
+                    ) else (
+                        echo "✗ docker-compose.yml NOT FOUND!"
+                        exit 1
+                    )
                 '''
             }
         }
-        
-        
         
         stage('Cleanup Docker') {
             steps {
                 bat '''
                     @echo off
                     echo === CLEANING DOCKER ===
-                    docker-compose down 2>nul || echo "No running containers"
+                    docker-compose down --remove-orphans 2>nul || echo "No running containers"
                     docker system prune -f 2>nul
                     echo "Cleanup completed"
                 '''
@@ -39,20 +42,32 @@ pipeline {
         
         stage('Build Images') {
             steps {
-                bat '''
-                    @echo off
-                    echo === BUILDING DOCKER IMAGES ===
+                script {
+                    // Собираем бэкенд
+                    try {
+                        bat '''
+                            @echo off
+                            echo "1. Building backend..."
+                            docker-compose build backend
+                        '''
+                    } catch (Exception e) {
+                        error "Backend build failed: ${e.getMessage()}"
+                    }
                     
-                    echo "1. Building backend..."
-                    docker-compose build backend
+                    // Пробуем собрать фронтенд, но не падаем
+                    try {
+                        bat '''
+                            @echo off
+                            echo "2. Building frontend..."
+                            docker-compose build frontend
+                        '''
+                    } catch (Exception e) {
+                        echo "Warning: Frontend build failed: ${e.getMessage()}"
+                        echo "Will try to start without frontend rebuild"
+                    }
                     
-                    echo.
-                    echo "2. Building frontend..."
-                    docker-compose build frontend
-                    
-                    echo.
-                    echo "Images built"
-                '''
+                    echo "Build stage completed"
+                }
             }
         }
         
@@ -63,54 +78,61 @@ pipeline {
                     echo === STARTING SERVICES ===
                     
                     echo "Starting all services..."
-                    docker-compose up -d
+                    docker-compose up -d --force-recreate
                     
-                    echo.
-                    echo "Waiting for startup..."
-                    timeout /t 20 /nobreak >nul
+                    echo "Waiting for startup (30 seconds)..."
+                    timeout /t 30 /nobreak >nul
                     
-                    echo.
                     echo "Container status:"
                     docker-compose ps
+                    
+                    echo "Checking logs briefly:"
+                    echo "Backend logs (last 5 lines):"
+                    docker-compose logs --tail=5 backend 2>nul || echo "Cannot get backend logs yet"
                 '''
             }
         }
         
         stage('Verify Services') {
             steps {
-                bat '''
-                    @echo off
-                    echo === VERIFYING SERVICES ===
+                script {
+                    // Даем больше времени для запуска
+                    sleep(time: 10, unit: 'SECONDS')
                     
-                    echo "Giving services time to fully start..."
-                    timeout /t 10 /nobreak >nul
-                    
-                    echo.
-                    echo "1. Checking backend (Django)..."
-                    curl --max-time 15 --retry 2 --retry-delay 5 http://localhost:8000/ && (
-                        echo "Backend is running at http://localhost:8000/"
-                    ) || (
-                        echo "Backend is not responding"
-                        echo "Backend logs:"
-                        docker-compose logs backend --tail=15
-                    )
-                    
-                    echo.
-                    echo "2. Checking frontend (Quasar)..."
-                    curl --max-time 15 --retry 2 --retry-delay 5 http://localhost:9000/ && (
-                        echo "Frontend is running at http://localhost:9000/"
-                    ) || (
-                        echo "Frontend is not responding (may take longer to start)"
-                        echo "Frontend logs:"
-                        docker-compose logs frontend --tail=15
-                    )
-                    
-                    echo.
-                    echo "3. Checking database..."
-                    docker-compose exec -T postgres pg_isready -U user && (
-                        echo "Database is working"
-                    ) || echo "Database check failed"
-                '''
+                    bat '''
+                        @echo off
+                        echo === VERIFYING SERVICES ===
+                        
+                        echo "1. Checking PostgreSQL..."
+                        docker-compose exec -T postgres pg_isready -U user -d document_builder && (
+                            echo "✓ PostgreSQL is ready"
+                        ) || (
+                            echo "✗ PostgreSQL is not ready"
+                            echo "Postgres logs:"
+                            docker-compose logs --tail=10 postgres
+                        )
+                        
+                        echo.
+                        echo "2. Checking backend (Django)..."
+                        curl --max-time 20 --retry 3 --retry-delay 5 --retry-max-time 60 -f http://localhost:8000/ && (
+                            echo "✓ Backend is running at http://localhost:8000/"
+                        ) || (
+                            echo "✗ Backend is not responding"
+                            echo "Checking backend logs..."
+                            docker-compose logs --tail=20 backend
+                        )
+                        
+                        echo.
+                        echo "3. Checking frontend (Quasar)..."
+                        curl --max-time 20 --retry 2 --retry-delay 5 -f http://localhost:9000/ && (
+                            echo "✓ Frontend is running at http://localhost:9000/"
+                        ) || (
+                            echo "⚠ Frontend is not responding (might still be starting)"
+                            echo "Frontend can take 1-2 minutes to build on first run..."
+                            docker-compose logs --tail=10 frontend
+                        )
+                    '''
+                }
             }
         }
         
@@ -126,23 +148,37 @@ pipeline {
                     echo "Build: %BUILD_NUMBER%" >> docker_report.txt
                     echo >> docker_report.txt
                     
-                    echo "CONTAINERS:" >> docker_report.txt
-                    docker-compose ps >> docker_report.txt
+                    echo "CONTAINER STATUS:" >> docker_report.txt
+                    docker-compose ps >> docker_report.txt 2>&1
+                    echo >> docker_report.txt
+                    
+                    echo "DOCKER IMAGES:" >> docker_report.txt
+                    docker images | findstr "docbuilder" >> docker_report.txt 2>&1 || echo "No docbuilder images found" >> docker_report.txt
                     echo >> docker_report.txt
                     
                     echo "AVAILABLE SERVICES:" >> docker_report.txt
-                    echo "Backend (Django):  http://localhost:8000/" >> docker_report.txt
-                    echo "Frontend (Quasar): http://localhost:9000/" >> docker_report.txt
-                    echo "Database:          localhost:5433" >> docker_report.txt
+                    echo "Backend (Django):     http://localhost:8000/" >> docker_report.txt
+                    echo "Django Admin:        http://localhost:8000/admin/" >> docker_report.txt
+                    echo "Frontend (Quasar):   http://localhost:9000/" >> docker_report.txt
+                    echo "Database (Postgres): localhost:5433" >> docker_report.txt
+                    echo "  Database: document_builder" >> docker_report.txt
+                    echo "  User: user" >> docker_report.txt
+                    echo "  Password: password" >> docker_report.txt
                     echo >> docker_report.txt
                     
-                    echo "COMMANDS:" >> docker_report.txt
-                    echo "docker-compose down          - stop all" >> docker_report.txt
-                    echo "docker-compose logs -f       - view logs" >> docker_report.txt
-                    echo "docker-compose exec backend bash - enter backend" >> docker_report.txt
+                    echo "LOGS (last 3 lines each):" >> docker_report.txt
+                    echo "Postgres:" >> docker_report.txt
+                    docker-compose logs --tail=3 postgres >> docker_report.txt 2>&1 || echo "No postgres logs" >> docker_report.txt
+                    echo >> docker_report.txt
+                    echo "Backend:" >> docker_report.txt
+                    docker-compose logs --tail=3 backend >> docker_report.txt 2>&1 || echo "No backend logs" >> docker_report.txt
+                    echo >> docker_report.txt
+                    echo "Frontend:" >> docker_report.txt
+                    docker-compose logs --tail=3 frontend >> docker_report.txt 2>&1 || echo "No frontend logs" >> docker_report.txt
                     echo >> docker_report.txt
                     
                     echo "Report saved to docker_report.txt"
+                    echo.
                     type docker_report.txt
                 '''
                 archiveArtifacts artifacts: 'docker_report.txt', fingerprint: true
@@ -157,22 +193,35 @@ pipeline {
             bat '''
                 @echo off
                 echo.
-                echo "FINAL STATUS:"
+                echo "FINAL CONTAINER STATUS:"
                 docker-compose ps
                 echo.
-                echo "SERVICES RUNNING:"
-                echo "Django:  http://localhost:8000/"
-                echo "Quasar:  http://localhost:9000/"
-                echo "Postgres: localhost:5433"
+                echo "SERVICES:"
+                echo "Backend (Django):  http://localhost:8000/"
+                echo "Frontend (Quasar): http://localhost:9000/"
+                echo "Database:         localhost:5433"
                 echo.
-                echo "To stop: docker-compose down"
+                echo "LOGS: docker-compose logs -f"
+                echo "STOP: docker-compose down"
             '''
         }
         success {
-            echo 'SUCCESS: All services are running in Docker!'
+            echo 'SUCCESS: Docker deployment completed'
         }
         failure {
-            echo 'ERROR: Failed to start all services'
+            echo 'ERROR: Pipeline failed'
+            bat '''
+                @echo off
+                echo "TROUBLESHOOTING INFO:"
+                echo "All containers:"
+                docker ps -a
+                echo.
+                echo "docker-compose logs:"
+                docker-compose logs --tail=50 2>nul || echo "Cannot get logs"
+                echo.
+                echo "Cleaning up..."
+                docker-compose down 2>nul
+            '''
         }
     }
 }
