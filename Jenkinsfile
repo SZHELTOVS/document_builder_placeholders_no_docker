@@ -6,18 +6,18 @@ pipeline {
             steps {
                 bat '''
                     @echo off
-                    echo === ПРОВЕРКА СТРУКТУРЫ ===
+                    echo === CHECKING PROJECT STRUCTURE ===
                     echo.
-                    echo "Корневая папка:"
+                    echo "Root folder:"
                     dir /B
                     echo.
-                    echo "Папка backend:"
+                    echo "Backend folder:"
                     dir backend /B
                     echo.
-                    echo "Папка backend/frontend:"
+                    echo "Backend/frontend folder:"
                     dir backend\\frontend /B
                     echo.
-                    echo "Проверяю package.json фронтенда:"
+                    echo "Checking frontend package.json:"
                     type backend\\frontend\\package.json | findstr "name version"
                 '''
             }
@@ -26,9 +26,9 @@ pipeline {
         stage('Create Docker Files') {
             steps {
                 script {
-                    echo '=== СОЗДАЮ DOCKER КОНФИГУРАЦИЮ ==='
+                    echo '=== CREATING DOCKER CONFIGURATION ==='
                     
-                    // 1. Создаем requirements.txt для бэкенда
+                    // 1. Create requirements.txt for backend
                     writeFile file: 'backend/requirements.txt', text: '''Django>=5.0,<6.0
 psycopg2-binary
 python-docx
@@ -36,9 +36,9 @@ docxtpl
 djangorestframework
 django-cors-headers
 '''
-                    echo '✓ Создан backend/requirements.txt'
+                    echo 'Created backend/requirements.txt'
                     
-                    // 2. Создаем Dockerfile для бэкенда
+                    // 2. Create Dockerfile for backend
                     writeFile file: 'backend/Dockerfile', text: '''FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y \\
@@ -58,9 +58,9 @@ EXPOSE 8000
 
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 '''
-                    echo '✓ Создан backend/Dockerfile'
+                    echo 'Created backend/Dockerfile'
                     
-                    // 3. Создаем Dockerfile для фронтенда
+                    // 3. Create Dockerfile for frontend
                     writeFile file: 'backend/frontend/Dockerfile', text: '''FROM node:18-alpine
 
 WORKDIR /app
@@ -74,9 +74,9 @@ EXPOSE 9000
 
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "9000"]
 '''
-                    echo '✓ Создан backend/frontend/Dockerfile'
+                    echo 'Created backend/frontend/Dockerfile'
                     
-                    // 4. Создаем docker-compose.yml
+                    // 4. Create docker-compose.yml
                     writeFile file: 'docker-compose.yml', text: '''version: '3.8'
 
 services:
@@ -138,7 +138,7 @@ services:
 volumes:
   postgres_data:
 '''
-                    echo '✓ Создан docker-compose.yml'
+                    echo 'Created docker-compose.yml'
                 }
             }
         }
@@ -147,10 +147,10 @@ volumes:
             steps {
                 bat '''
                     @echo off
-                    echo === ОЧИСТКА DOCKER ===
-                    docker-compose down 2>nul || echo "Нет запущенных контейнеров"
+                    echo === CLEANING DOCKER ===
+                    docker-compose down 2>nul || echo "No running containers"
                     docker system prune -f 2>nul
-                    echo "✓ Очистка завершена"
+                    echo "Cleanup completed"
                 '''
             }
         }
@@ -159,17 +159,17 @@ volumes:
             steps {
                 bat '''
                     @echo off
-                    echo === СОБИРАЮ DOCKER ОБРАЗЫ ===
+                    echo === BUILDING DOCKER IMAGES ===
                     
-                    echo "1. Собираю бэкенд..."
+                    echo "1. Building backend..."
                     docker-compose build backend
                     
                     echo.
-                    echo "2. Собираю фронтенд..."
+                    echo "2. Building frontend..."
                     docker-compose build frontend
                     
                     echo.
-                    echo "✓ Образы собраны"
+                    echo "Images built"
                 '''
             }
         }
@@ -178,17 +178,17 @@ volumes:
             steps {
                 bat '''
                     @echo off
-                    echo === ЗАПУСКАЮ СЕРВИСЫ ===
+                    echo === STARTING SERVICES ===
                     
-                    echo "Запускаю все сервисы..."
+                    echo "Starting all services..."
                     docker-compose up -d
                     
                     echo.
-                    echo "Жду запуска..."
+                    echo "Waiting for startup..."
                     timeout /t 20 /nobreak >nul
                     
                     echo.
-                    echo "Статус контейнеров:"
+                    echo "Container status:"
                     docker-compose ps
                 '''
             }
@@ -198,36 +198,36 @@ volumes:
             steps {
                 bat '''
                     @echo off
-                    echo === ПРОВЕРКА СЕРВИСОВ ===
+                    echo === VERIFYING SERVICES ===
                     
-                    echo "Даю сервисам время на полный запуск..."
+                    echo "Giving services time to fully start..."
                     timeout /t 10 /nobreak >nul
                     
                     echo.
-                    echo "1. Проверяю бэкенд (Django)..."
+                    echo "1. Checking backend (Django)..."
                     curl --max-time 15 --retry 2 --retry-delay 5 http://localhost:8000/ && (
-                        echo "✓ Бэкенд работает на http://localhost:8000/"
+                        echo "Backend is running at http://localhost:8000/"
                     ) || (
-                        echo "✗ Бэкенд не отвечает"
-                        echo "Логи бэкенда:"
+                        echo "Backend is not responding"
+                        echo "Backend logs:"
                         docker-compose logs backend --tail=15
                     )
                     
                     echo.
-                    echo "2. Проверяю фронтенд (Quasar)..."
+                    echo "2. Checking frontend (Quasar)..."
                     curl --max-time 15 --retry 2 --retry-delay 5 http://localhost:9000/ && (
-                        echo "✓ Фронтенд работает на http://localhost:9000/"
+                        echo "Frontend is running at http://localhost:9000/"
                     ) || (
-                        echo "✗ Фронтенд не отвечает (может дольше запускаться)"
-                        echo "Логи фронтенда:"
+                        echo "Frontend is not responding (may take longer to start)"
+                        echo "Frontend logs:"
                         docker-compose logs frontend --tail=15
                     )
                     
                     echo.
-                    echo "3. Проверяю базу данных..."
+                    echo "3. Checking database..."
                     docker-compose exec -T postgres pg_isready -U user && (
-                        echo "✓ База данных работает"
-                    ) || echo "⚠ База данных проверка не удалась"
+                        echo "Database is working"
+                    ) || echo "Database check failed"
                 '''
             }
         }
@@ -236,31 +236,31 @@ volumes:
             steps {
                 bat '''
                     @echo off
-                    echo === СОЗДАЮ ОТЧЕТ ===
+                    echo === CREATING REPORT ===
                     
                     echo "DOCUMENT BUILDER - DOCKER DEPLOYMENT" > docker_report.txt
                     echo "======================================" >> docker_report.txt
-                    echo "Дата: %date% %time%" >> docker_report.txt
-                    echo "Сборка: %BUILD_NUMBER%" >> docker_report.txt
+                    echo "Date: %date% %time%" >> docker_report.txt
+                    echo "Build: %BUILD_NUMBER%" >> docker_report.txt
                     echo >> docker_report.txt
                     
-                    echo "КОНТЕЙНЕРЫ:" >> docker_report.txt
+                    echo "CONTAINERS:" >> docker_report.txt
                     docker-compose ps >> docker_report.txt
                     echo >> docker_report.txt
                     
-                    echo "ДОСТУПНЫЕ СЕРВИСЫ:" >> docker_report.txt
-                    echo "• Бэкенд (Django):  http://localhost:8000/" >> docker_report.txt
-                    echo "• Фронтенд (Quasar): http://localhost:9000/" >> docker_report.txt
-                    echo "• База данных:      localhost:5433" >> docker_report.txt
+                    echo "AVAILABLE SERVICES:" >> docker_report.txt
+                    echo "Backend (Django):  http://localhost:8000/" >> docker_report.txt
+                    echo "Frontend (Quasar): http://localhost:9000/" >> docker_report.txt
+                    echo "Database:          localhost:5433" >> docker_report.txt
                     echo >> docker_report.txt
                     
-                    echo "КОМАНДЫ:" >> docker_report.txt
-                    echo "docker-compose down          - остановить все" >> docker_report.txt
-                    echo "docker-compose logs -f       - смотреть логи" >> docker_report.txt
-                    echo "docker-compose exec backend bash - войти в бэкенд" >> docker_report.txt
+                    echo "COMMANDS:" >> docker_report.txt
+                    echo "docker-compose down          - stop all" >> docker_report.txt
+                    echo "docker-compose logs -f       - view logs" >> docker_report.txt
+                    echo "docker-compose exec backend bash - enter backend" >> docker_report.txt
                     echo >> docker_report.txt
                     
-                    echo "Отчет сохранен в docker_report.txt"
+                    echo "Report saved to docker_report.txt"
                     type docker_report.txt
                 '''
                 archiveArtifacts artifacts: 'docker_report.txt', fingerprint: true
@@ -271,26 +271,26 @@ volumes:
     
     post {
         always {
-            echo '=== ПАЙПЛАЙН ЗАВЕРШЕН ==='
+            echo '=== PIPELINE COMPLETED ==='
             bat '''
                 @echo off
                 echo.
-                echo "ИТОГОВЫЙ СТАТУС:"
+                echo "FINAL STATUS:"
                 docker-compose ps
                 echo.
-                echo "СЕРВИСЫ ЗАПУЩЕНЫ:"
-                echo "• Django:  http://localhost:8000/"
-                echo "• Quasar:  http://localhost:9000/"
-                echo "• Postgres: localhost:5433"
+                echo "SERVICES RUNNING:"
+                echo "Django:  http://localhost:8000/"
+                echo "Quasar:  http://localhost:9000/"
+                echo "Postgres: localhost:5433"
                 echo.
-                echo "Для остановки: docker-compose down"
+                echo "To stop: docker-compose down"
             '''
         }
         success {
-            echo '✅ УСПЕХ: Все сервисы запущены в Docker!'
+            echo 'SUCCESS: All services are running in Docker!'
         }
         failure {
-            echo '❌ ОШИБКА: Не удалось запустить все сервисы'
+            echo 'ERROR: Failed to start all services'
         }
     }
 }
