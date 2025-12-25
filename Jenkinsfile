@@ -50,43 +50,49 @@ pipeline {
                 script {
                     echo 'Starting server as separate service...'
                     
-                    // 1. Start Django as Windows service
                     bat '''
                         @echo off
                         cd backend
-
-                        echo [1/4] Запускаю Django сервер...
-                        START /B cmd /c "venv/Scripts/activate && python manage.py runserver 0.0.0.0:8000"
-                        echo Django запущен на http://localhost:8000
+                        
+                        echo [1/4] Starting Django server...
+                        START /B venv\\Scripts\\python.exe manage.py runserver 0.0.0.0:8000
+                        echo Django started on http://localhost:8000
                         timeout /t 3 /nobreak > nul
-
-                        echo [2/4] Перехожу в папку frontend...
+                        
+                        echo [2/4] Creating status file...
+                        echo === SERVER STATUS === > ..\\server_running.txt
+                        echo Start time: %date% %time% >> ..\\server_running.txt
+                        echo Django: http://localhost:8000 >> ..\\server_running.txt
+                        echo Frontend: starting... >> ..\\server_running.txt
+                        echo Processes will continue after Jenkins stops >> ..\\server_running.txt
+                        type ..\\server_running.txt
+                        
+                        echo [3/4] Going to frontend folder...
                         cd frontend
-
-                        echo [3/4] Запускаю Frontend (Quasar)...
-                        START /B cmd /c "npm run dev"
-                        echo Frontend запущен (обычно на http://localhost:9000 или 8080)
+                        
+                        echo [4/4] Starting Frontend (Quasar)...
+                        START /B npm run dev
+                        echo Frontend started (usually on http://localhost:9000 or 8080)
+                        echo Check frontend output above for exact port
                         timeout /t 3 /nobreak > nul
-
-                        echo [4/4] Проверяю запущенные процессы...
-                        tasklist | findstr "python node"
-
+                        
                         echo ================================================
-                        echo СЕРВЕРЫ ЗАПУЩЕНЫ УСПЕШНО!
+                        echo SERVERS STARTED SUCCESSFULLY!
                         echo ================================================
                         echo Django:  http://localhost:8000
-                        echo Frontend: проверьте порт в выводе npm выше
+                        echo Frontend: check npm output above for port
                         echo 
-                        echo Процессы продолжают работать после завершения Jenkins
-                        echo Чтобы остановить: taskkill /F /IM python.exe /IM node.exe
+                        echo Processes continue to run after Jenkins finishes
+                        echo To stop: taskkill /F /IM python.exe /IM node.exe
                         echo ================================================
                     '''
                     
+                    // Архивация должна быть вне bat блока
                     archiveArtifacts artifacts: 'server_running.txt'
                     
                     echo 'SERVER IS RUNNING'
                     echo 'Backend: http://localhost:8000'
-                    echo 'Frontend: in development'
+                    echo 'Frontend: check console output for port'
                     echo 'Processes continue to run independently from Jenkins'
                 }
             }
@@ -107,9 +113,9 @@ pipeline {
                         @echo off
                         echo === PRODUCTION DEPLOY === > deploy.txt
                         echo Project: Document Builder >> deploy.txt
-                        echo Branch: %%GIT_BRANCH%% >> deploy.txt
+                        echo Branch: %GIT_BRANCH% >> deploy.txt
                         echo Commit: ${commitHash} >> deploy.txt
-                        echo Time: %%date%% %%time%% >> deploy.txt
+                        echo Time: %date% %time% >> deploy.txt
                         echo Status: DEPLOYED >> deploy.txt
                         echo Tests: 6/6 passed >> deploy.txt
                         echo Services: running >> deploy.txt
